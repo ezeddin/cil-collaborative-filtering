@@ -59,9 +59,7 @@ predictions = data
 
 average_for_item = np.true_divide(predictions.sum(1), (predictions!=0).sum(1))
 for i in range(predictions.shape[0]):
-    for j in range(predictions.shape[1]):
-        if predictions[i,j] == 0:
-            predictions[i,j] = average_for_item[i]
+    predictions[i,:] = np.where(predictions[i,:] == 0, average_for_item[i], predictions[i,:])
                 
 K = 50
 print("Computing SVD...")
