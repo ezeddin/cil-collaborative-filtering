@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import scipy
+import scipy.sparse
 import time
 from local_vars import USERNAME
 
@@ -53,13 +53,26 @@ nb_ratings = (data!=0).sum()
 print('Dataset has {} non zero values'.format(nb_ratings))
 print('average rating : {}'.format( data.sum() / nb_ratings))
 
-predictions = data.todense()
-average_for_item = np.true_divide(predictions.sum(1), (predictions!=0).sum(1))
+data = data.todense()
 
+predictions = data
+
+average_for_item = np.true_divide(predictions.sum(1), (predictions!=0).sum(1))
 for i in range(predictions.shape[0]):
     for j in range(predictions.shape[1]):
         if predictions[i,j] == 0:
             predictions[i,j] = average_for_item[i]
-            
+                
+K = 50
+print("Computing SVD...")
+U, S, VT = np.linalg.svd(predictions, full_matrices=True)
+
+U2 = U[:,:K]
+S2 = S[:K]
+VT2 = VT[:K, :]
+
+reduced_data = U2.dot(np.diag(S2)).dot(VT2)
+       
+print("Writing to file...")     
 filename = TARGET_FOLDER + "/submission_{}_{}.csv".format(USERNAME, time.strftime("%c").replace(":","-")[4:-5])
-write_data(filename, predictions)
+write_data(filename, reduced_data)
