@@ -6,6 +6,7 @@ import time
 from local_vars import USERNAME
 import pickle
 import matplotlib.pyplot as plt
+import math
 #%matplotlib inline
 
 DATA_FILE = 'data/data_train.csv'
@@ -19,9 +20,10 @@ NB_ITEMS = 1000
 DO_LOCAL_VALIDATION = True
 VALIDATION_AVERAGING = 2
 MODEL = 'SVD'
-HYPER_PARAM = [10, 15]
+HYPER_PARAM = [5,10,15,20]
 INJECT_TEST_DATA = False
-ROUND = 15
+ROUND = 15 
+POST_PROCESS = True
 
 def load_data(filename):
     print("Loading data...")
@@ -86,7 +88,7 @@ def write_data(filename, matrix):
                 user = int(c[0][1:]) - 1 # 0-based indexing
                 item = int(c[1][1:]) - 1 # 0-based indexing
                 
-                rating = max(0, min(5, np.round(matrix[item,user], ROUND)))
+                rating = np.round(matrix[item,user], ROUND)
                 write_file.write(SUBMISSION_FORMAT.format(user+1, item+1, rating))
 
 def average_prediction(matrix):
@@ -106,6 +108,10 @@ def svd_prediction(matrix, K=15):
 def sgd_prediction(matrix):
     return np.array(matrix)
 
+def post_process(predictions):
+    predictions[predictions > 5.0] = 5.0
+    predictions[predictions < 1.0] = 1.0
+    
 def run_model(training_data, param1):
     if MODEL == 'average':
         predictions = average_prediction(training_data)
@@ -113,13 +119,15 @@ def run_model(training_data, param1):
         predictions = svd_prediction(average_prediction(training_data), K=param1)
     elif MODEL == 'SGD':
         predictions = sgd_prediction(training_data)
+    if POST_PROCESS:
+        post_process(predictions)
     return predictions
 
 def validate(training_data, secret_data, approximation):
     row_errors = np.zeros((training_data.shape[0],))
     for i in range(training_data.shape[0]):
         row_errors[i] = np.where(secret_data[i,:] != 0 , np.square(approximation[i,:] - secret_data[i,:]), 0).sum()
-    return row_errors.sum() / (training_data!=0).sum()
+    return math.sqrt(row_errors.sum() / (secret_data!=0).sum())
 
 
 # load data from file
