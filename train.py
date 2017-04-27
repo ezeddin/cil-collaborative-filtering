@@ -21,13 +21,12 @@ NB_USERS = 10000
 NB_ITEMS = 1000
 
 DO_LOCAL_VALIDATION = True
-VALIDATION_AVERAGING = 1
+CV_SPLITS = 8
 MODEL = 'SVD'
 HYPER_PARAM = [5,10,12,15,20]
 INJECT_TEST_DATA = False
 ROUND = 15 
 POST_PROCESS = True
-CV_SPLITS = 8
 
 def load_data(filename):
     print("Loading data...")
@@ -48,7 +47,7 @@ def load_data(filename):
     data = scipy.sparse.csr_matrix((values, (rows, cols)), shape=(NB_ITEMS, NB_USERS), dtype='float')
     nb_ratings = (data!=0).sum()
 
-    if INJECT_TEST_DATA:
+    if INJECT_TEST_DATA: 
         data = np.array([
             [0, 0, 5, 4, 0, 0],
             [0, 2, 0, 0, 0, 1],
@@ -87,8 +86,8 @@ def print_stats(matrix):
 
 def split_randomly(raw_data,n_splits = CV_SPLITS):
     """
-        splits the non-zero indices of the raw_data matrix into n parts. 
-        a list of length n is returned, each being a list of indices corresponding to the split
+        randomly splits the non-zero indices of the raw_data matrix into n parts. 
+        a list of length n is returned, each element being the indices of the i-th split
     """
     non_zero_indices = list(zip(*np.nonzero(raw_data)))
     np.random.shuffle(non_zero_indices) 
@@ -100,7 +99,7 @@ def split_randomly(raw_data,n_splits = CV_SPLITS):
 def build_train_and_test(raw_data, index_splits, use_as_test):
     """
     raw_data : the matrix to split into parts
-    index_splits : the list of indexes, split for cross_validation
+    index_splits : list of list of indexes as returned by slpit_randomly function
     use_as_test : the split (int) to leave out as test set
     
     returns : a training matrix and a test matrix
