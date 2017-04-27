@@ -15,7 +15,7 @@ import random
 DATA_FILE = 'data/data_train.csv'
 SUBMISSION_EXAMPLE = 'data/sampleSubmission.csv'
 TARGET_FOLDER = 'submissions'
-SUBMISSION_FORMAT='r{}_c{},{:.3f}\n'
+SUBMISSION_FORMAT='r{}_c{},{:.5f}\n'
 
 NB_USERS = 10000
 NB_ITEMS = 1000
@@ -25,7 +25,7 @@ CV_SPLITS = 8
 MODEL = 'SGD'
 HYPER_PARAM = 10
 INJECT_TEST_DATA = False
-ROUND = 15 
+ROUND = 5 
 POST_PROCESS = True
 
 SGD_VERBOSITY = 2 #0 for nothing, 1 for basic messages, 2 for steps
@@ -47,7 +47,7 @@ def load_data(filename):
             rows[i] = int(c[1][1:]) - 1 # 0-based indexing
             cols[i] = int(c[0][1:]) - 1 # 0-based indexing
     data = scipy.sparse.csr_matrix((values, (rows, cols)), shape=(NB_ITEMS, NB_USERS), dtype='float')
-    nb_ratings = (data!=0).sum()
+    nb_ratings = data.getnnz()
 
     if INJECT_TEST_DATA: 
         data = np.array([
@@ -56,11 +56,11 @@ def load_data(filename):
             [6, 0, 0, 0, 8, 0],
             [0, 2, 1, 0, 0, 0],
             ])
-        nb_ratings = (raw_data!=0).sum()
+        nb_ratings = (data!=0).sum()
 
     print('Dataset has {} non zero values'.format(nb_ratings))
     print('average rating : {}'.format( data.sum() / nb_ratings))
-    return data.todense(), nb_ratings
+    return np.asarray(data.todense()), nb_ratings
 
 def write_data(filename, matrix):
     print("Writing to file...")     
@@ -117,12 +117,21 @@ def build_train_and_test(raw_data, index_splits, use_as_test):
     assert(np.array_equal(train_data+test_data, raw_data))
     return train_data, test_data
 
-def average_prediction(matrix):
+def averaging_fill_up(matrix):
     average_for_item = np.true_divide(matrix.sum(1), (matrix!=0).sum(1))
     averaged = np.array(matrix, np.float64)
     for i in range(matrix.shape[0]):
         averaged[i,:] = np.where(averaged[i,:] == 0, average_for_item[i], averaged[i,:])
     return averaged
+
+def sampling_distribution_fill_up(matrix):
+    filled = np.array(matrix)
+    for i in range(matrix.shape[0]):
+        nonzeros_per_row = np.squeeze(matrix[i, np.where(matrix[i,:] != 0.0)[0]])
+        for j in range(matrix.shape[1]):
+            if filled[i,j] == 0:
+                filled[i,j] = np.random.choice(nonzeros_per_row, replace=True)
+    return filled
 
 def svd_prediction(matrix, K=15):
     U, S, VT = np.linalg.svd(matrix, full_matrices=True)
@@ -174,9 +183,11 @@ def post_process(predictions):
     
 def run_model(training_data, param1):
     if MODEL == 'average':
-        predictions = average_prediction(training_data)
+        predictions = averaging_fill_up(training_data)
     elif MODEL == 'SVD':
-        predictions = svd_prediction(average_prediction(training_data), K=param1)
+        predictions = svd_prediction(averaging_fill_up(training_data), K=param1)
+    elif MODEL == 'SVD2':
+        predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
     elif MODEL == 'SGD':
         predictions = sgd_prediction(training_data, K = param1)
     if POST_PROCESS:
