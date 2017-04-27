@@ -21,14 +21,15 @@ NB_USERS = 10000
 NB_ITEMS = 1000
 
 DO_LOCAL_VALIDATION = True
-CV_SPLITS = 8
+CV_SPLITS = 4
+USE_ONLY_FIRST_CV = False #do not average over all splits
 MODEL = 'SGD'
-HYPER_PARAM = 10
+HYPER_PARAM = [4,6,8,10,12,14]
 INJECT_TEST_DATA = False
 ROUND = 15 
 POST_PROCESS = True
 
-SGD_VERBOSITY = 2 #0 for nothing, 1 for basic messages, 2 for steps
+SGD_VERBOSITY = 1 #0 for nothing, 1 for basic messages, 2 for steps
 
 def load_data(filename):
     print("Loading data...")
@@ -162,7 +163,7 @@ def sgd_prediction(matrix, K=15, learning_rate_factor = 0.01, n_iter = 60000000,
         U[d,:] = U_d + learning_rate * delta * V_n
         V[n,:] = V_n + learning_rate * delta * U_d
     
-        if t % print_every == 0:
+        if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
             print("      SGD : step {}  ({} % done!). fit = {:.4f}".format(t+1, int(100 * (t+1) /n_iter), score))
         
@@ -208,7 +209,8 @@ if DO_LOCAL_VALIDATION:
     for param in hyper_parameters:
         print("Testing with hyperparameter {}".format(param))
         avg_scores = []
-        for i in range(CV_SPLITS):
+        max_split = 1 if USE_ONLY_FIRST_CV else CV_SPLITS
+        for i in range(max_split):
             training_data, test_data = build_train_and_test(raw_data, splits, i)
             print('    running model when leaving out split {}'.format(i))
             avg_scores.append(validate(test_data, run_model(training_data, param)))
