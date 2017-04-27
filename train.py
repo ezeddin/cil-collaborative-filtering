@@ -22,11 +22,13 @@ NB_ITEMS = 1000
 
 DO_LOCAL_VALIDATION = True
 CV_SPLITS = 8
-MODEL = 'SVD'
-HYPER_PARAM = [5,10,12,15,20]
+MODEL = 'SGD'
+HYPER_PARAM = 10
 INJECT_TEST_DATA = False
 ROUND = 15 
 POST_PROCESS = True
+
+SGD_VERBOSITY = 2 #0 for nothing, 1 for basic messages, 2 for steps
 
 def load_data(filename):
     print("Loading data...")
@@ -129,19 +131,25 @@ def svd_prediction(matrix, K=15):
     VT2 = VT[:K, :]
     return U2.dot(np.diag(S2)).dot(VT2)
 
-def sgd_prediction(matrix, K=15, learning_rate_factor = 0.01, n_iter = 1000000): #TODO : Fix this. try with different learning rates
+def sgd_prediction(matrix, K=15, learning_rate_factor = 0.01, n_iter = 60000000, verbose = SGD_VERBOSITY): #TODO : Fix this. try with different learning rates
     """
         matrix is the training dataset with nonzero entries only where ratings are given
+        
+        verbose = 0 for no logging
+                  1 for inital messages
+                  2 for steps
     """
-    log_sieve = n_iter / 10 # we log 100 times 
+    
+    print_every = n_iter / 100
     U = np.random.rand(matrix.shape[0],K)
     V = np.random.rand(matrix.shape[1],K)
     
-    iteration_logger = Logger(sieve = log_sieve)
+    #iteration_logger = Logger(sieve = log_sieve) #don't need this as of now. TODO (Tobi) : fix
     
     non_zero_indices = list(zip(*np.nonzero(matrix)))
-    print("sgd_prediction called. K = {}".format(K))
-    print("There are {} nonzero indices in total.".format(len(non_zero_indices)))
+    if verbose > 0 :
+        print("      SGD: sgd_prediction called. K = {}".format(K))
+        print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
     
     for t in range(n_iter):
         learning_rate = learning_rate_factor
@@ -153,8 +161,10 @@ def sgd_prediction(matrix, K=15, learning_rate_factor = 0.01, n_iter = 1000000):
         
         U[d,:] = U_d + learning_rate * delta * V_n
         V[n,:] = V_n + learning_rate * delta * U_d
-        
-        iteration_logger.log("SGD step {} out of {}. Delta value = {:.4f}".format(t+1, n_iter, abs(delta)))
+    
+        if t % print_every == 0:
+            score = validate(matrix, U.dot(V.T))
+            print("      SGD : step {}  ({} % done!). fit = {:.4f}".format(t+1, int(100 * (t+1) /n_iter), score))
         
     return U.dot(V.T)
 
@@ -173,7 +183,7 @@ def run_model(training_data, param1):
         post_process(predictions)
     return predictions
 
-def validate(training_data, secret_data, approximation):
+def validate(secret_data, approximation):
     error_sum = np.where(secret_data!=0, np.square(approximation-secret_data),0).sum()
     return math.sqrt(error_sum / (secret_data!=0).sum())
     
@@ -200,10 +210,11 @@ if DO_LOCAL_VALIDATION:
         avg_scores = []
         for i in range(CV_SPLITS):
             training_data, test_data = build_train_and_test(raw_data, splits, i)
-            print('        running model when leaving out split {}'.format(i))
-            avg_scores.append(validate(training_data, test_data, run_model(training_data, param)))
+            print('    running model when leaving out split {}'.format(i))
+            avg_scores.append(validate(test_data, run_model(training_data, param)))
+            print('    got score : {}'.format(avg_scores[-1]))
         scores.append([param, np.average(avg_scores)])
-        print('    score = {} for param='.format(scores[-1][1]), param)
+        print('  score = {} for param='.format(scores[-1][1]), param)
         
     if len(scores) > 1:
         npscore = np.array(scores)
