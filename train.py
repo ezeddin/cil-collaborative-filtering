@@ -17,11 +17,14 @@ NB_USERS = 10000
 NB_ITEMS = 1000
 
 DO_LOCAL_VALIDATION = True
+VALIDATION_AVERAGING = 2
 MODEL = 'SVD'
+HYPER_PARAM = [10, 15]
 INJECT_TEST_DATA = False
-ROUND = 0
+ROUND = 15
 
 def load_data(filename):
+    print("Loading data...")
     with open(filename, 'r') as f:
         lines = f.readlines()
         
@@ -38,6 +41,16 @@ def load_data(filename):
             cols[i] = int(c[0][1:]) - 1 # 0-based indexing
     data = scipy.sparse.csr_matrix((values, (rows, cols)), shape=(NB_ITEMS, NB_USERS), dtype='float')
     nb_ratings = (data!=0).sum()
+
+    if INJECT_TEST_DATA:
+        data = np.array([
+            [0, 0, 5, 4, 0, 0],
+            [0, 2, 0, 0, 0, 1],
+            [6, 0, 0, 0, 8, 0],
+            [0, 2, 1, 0, 0, 0],
+            ])
+        nb_ratings = (raw_data!=0).sum()
+
     print('Dataset has {} non zero values'.format(nb_ratings))
     print('average rating : {}'.format( data.sum() / nb_ratings))
     return data.todense(), nb_ratings
@@ -54,7 +67,13 @@ def build_validation_set(raw_data):
     secret_data[list(zip(*known_set_indices))] = 0
     return training_data, secret_data
 
+def print_stats(matrix):
+    print("The matrix has the following values:")
+    print("  > Values range from {} to {}".format(np.min(matrix),np.max(matrix)))
+    print("  > Average value is {}".format(np.average(matrix)))
+
 def write_data(filename, matrix):
+    print("Writing to file...")     
     with open(filename, 'w') as write_file:
         write_file.write('Id,Prediction\n')
         with open(SUBMISSION_EXAMPLE, 'r') as example_file:
@@ -87,72 +106,49 @@ def svd_prediction(matrix, K=15):
 def sgd_prediction(matrix):
     return np.array(matrix)
 
-def validate(data, training_data, secret_data, approximation):
-    row_errors = np.zeros((data.shape[0],))
-    for i in range(data.shape[0]):
+def run_model(training_data, param1):
+    if MODEL == 'average':
+        predictions = average_prediction(training_data)
+    elif MODEL == 'SVD':
+        predictions = svd_prediction(average_prediction(training_data), K=param1)
+    elif MODEL == 'SGD':
+        predictions = sgd_prediction(training_data)
+    return predictions
+
+def validate(training_data, secret_data, approximation):
+    row_errors = np.zeros((training_data.shape[0],))
+    for i in range(training_data.shape[0]):
         row_errors[i] = np.where(secret_data[i,:] != 0 , np.square(approximation[i,:] - secret_data[i,:]), 0).sum()
     return row_errors.sum() / (training_data!=0).sum()
 
 
 # load data from file
-print('Loading data file...')
 raw_data, nb_ratings = load_data(DATA_FILE)
-if INJECT_TEST_DATA:
-    raw_data = np.array([
-        [0, 0, 5, 4, 0, 0],
-        [0, 2, 0, 0, 0, 1],
-        [6, 0, 0, 0, 8, 0],
-        [0, 2, 1, 0, 0, 0],
-        ])
-    nb_ratings = (raw_data!=0).sum()
-
-
-# prepare training set
-if DO_LOCAL_VALIDATION:
-    print('Building validation set...')
-    training_data, secret_data = build_validation_set(raw_data)
-else:
-    training_data = raw_data
-
 
 # run prediction
-print('Running Model {}...'.format(MODEL))
-if MODEL == 'average':
-    predictions = average_prediction(training_data)
-elif MODEL == 'SVD':
-    predictions = svd_prediction(average_prediction(training_data), K=12)
-elif MODEL == 'HYPER_SVD': 
-    # try SVD with different K values
-    Ks = list(range(4, 20))
-    scores = np.zeros((len(Ks), 100))
-    for epoch in range(100):
-        # reshuffle data in every epoch
-        non_zero_indices = list(zip(*np.nonzero(raw_data)))
-        shuffled_indices = np.random.shuffle(non_zero_indices)
-        secret_set_indices = non_zero_indices[:nb_ratings//2]
-        known_set_indices = non_zero_indices[nb_ratings//2:]
-        training_data = np.array(raw_data)
-        training_data[list(zip(*secret_set_indices))] = 0
-        secret_data = np.array(raw_data)
-        secret_data[list(zip(*known_set_indices))] = 0
-        
-        for i, K in enumerate(Ks):
-            print('Epoch {}: predicting using K={}...'.format(epoch, K))
-            scores[i][epoch] = validate(raw_data, training_data, secret_data, svd_prediction(average_prediction(training_data), K=K))
-    pickle.dump(scores, open('scores.pkl', 'wb'))
-    plt.plot(Ks,np.average(scores, axis=1))
-elif MODEL == 'SGD':
-    predictions = sgd_prediction(training_data)
-
-
-# validate locally or export prediction for submission
-if MODEL != 'HYPER_SVD':
-    # either do local score computation or write submission
-    if DO_LOCAL_VALIDATION:
-        print('Running local validation (not writing submission file)...')
-        score = validate(raw_data, training_data, secret_data, predictions)
-        print('Score = {}'.format(score))
-    else:
-        print('Writing to file...')     
-        filename = TARGET_FOLDER + '/submission_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5])
-        write_data(filename, predictions)       
+print('Running {}...'.format(MODEL))
+if DO_LOCAL_VALIDATION:
+    hyper_parameters = HYPER_PARAM if type(HYPER_PARAM) == list else [HYPER_PARAM]
+    scores = []
+    for param in hyper_parameters:
+        avg_scores = []
+        for avg_epoch in range(VALIDATION_AVERAGING):
+            print('  > shuffling data for averaging epoch: {}'.format(avg_epoch))
+            training_data, secret_data = build_validation_set(raw_data)
+            print('  > running model...'.format(avg_epoch))
+            avg_scores.append(validate(training_data, secret_data, run_model(training_data, param)))
+        scores.append([param, np.average(avg_scores)])
+        print('    > Score = {} for param='.format(scores[-1][1]), param)
+    if len(scores) > 1:
+        npscore = np.array(scores)
+        pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
+        plt.plot(npscore[:,0], npscore[:,1])
+        plt.xlabel('param')
+        plt.ylabel('score')
+else:
+    training_data = raw_data
+    assert type(HYPER_PARAM)!=list, "We want to export a submission! Hyperparameter can't be a list!"
+    predictions = run_model(raw_data, HYPER_PARAM)
+    print_stats(predictions) 
+    filename = TARGET_FOLDER + '/submission_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5])
+    write_data(filename, predictions)
