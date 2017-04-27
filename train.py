@@ -6,6 +6,10 @@ import time
 from local_vars import USERNAME
 import pickle
 import matplotlib.pyplot as plt
+import math
+from helpers import Logger
+import random 
+
 #%matplotlib inline
 
 DATA_FILE = 'data/data_train.csv'
@@ -17,11 +21,14 @@ NB_USERS = 10000
 NB_ITEMS = 1000
 
 DO_LOCAL_VALIDATION = True
-VALIDATION_AVERAGING = 2
-MODEL = 'SVD'
-HYPER_PARAM = [10, 15]
+CV_SPLITS = 8
+MODEL = 'SGD'
+HYPER_PARAM = 10
 INJECT_TEST_DATA = False
-ROUND = 15
+ROUND = 15 
+POST_PROCESS = True
+
+SGD_VERBOSITY = 2 #0 for nothing, 1 for basic messages, 2 for steps
 
 def load_data(filename):
     print("Loading data...")
@@ -42,7 +49,7 @@ def load_data(filename):
     data = scipy.sparse.csr_matrix((values, (rows, cols)), shape=(NB_ITEMS, NB_USERS), dtype='float')
     nb_ratings = (data!=0).sum()
 
-    if INJECT_TEST_DATA:
+    if INJECT_TEST_DATA: 
         data = np.array([
             [0, 0, 5, 4, 0, 0],
             [0, 2, 0, 0, 0, 1],
@@ -54,23 +61,6 @@ def load_data(filename):
     print('Dataset has {} non zero values'.format(nb_ratings))
     print('average rating : {}'.format( data.sum() / nb_ratings))
     return data.todense(), nb_ratings
-
-def build_validation_set(raw_data):
-    # randomly sample half of the non-zero values and define them as the new secret set
-    non_zero_indices = list(zip(*np.nonzero(raw_data)))
-    np.random.shuffle(non_zero_indices)
-    secret_set_indices = non_zero_indices[:nb_ratings//2]
-    known_set_indices = non_zero_indices[nb_ratings//2:]
-    training_data = np.array(raw_data)
-    training_data[list(zip(*secret_set_indices))] = 0
-    secret_data = np.array(raw_data)
-    secret_data[list(zip(*known_set_indices))] = 0
-    return training_data, secret_data
-
-def print_stats(matrix):
-    print("The matrix has the following values:")
-    print("  > Values range from {} to {}".format(np.min(matrix),np.max(matrix)))
-    print("  > Average value is {}".format(np.average(matrix)))
 
 def write_data(filename, matrix):
     print("Writing to file...")     
@@ -86,8 +76,46 @@ def write_data(filename, matrix):
                 user = int(c[0][1:]) - 1 # 0-based indexing
                 item = int(c[1][1:]) - 1 # 0-based indexing
                 
-                rating = max(0, min(5, np.round(matrix[item,user], ROUND)))
+                rating = np.round(matrix[item,user], ROUND)
                 write_file.write(SUBMISSION_FORMAT.format(user+1, item+1, rating))
+                
+    
+def print_stats(matrix):
+    print("The matrix has the following values:")
+    print("  > Values range from {} to {}".format(np.min(matrix),np.max(matrix)))
+    print("  > Average value is {}".format(np.average(matrix)))
+    
+
+def split_randomly(raw_data,n_splits = CV_SPLITS):
+    """
+        randomly splits the non-zero indices of the raw_data matrix into n parts. 
+        a list of length n is returned, each element being the indices of the i-th split
+    """
+    non_zero_indices = list(zip(*np.nonzero(raw_data)))
+    np.random.shuffle(non_zero_indices) 
+    size = len(non_zero_indices) // n_splits
+    assert(size * n_splits == len(non_zero_indices)), "n chosen for cross validation does not evenly split data. Choose 4, 7, 8, 14, 28, 56"
+    
+    return [non_zero_indices[(a*size): ((a+1)*size)] for a in range(n_splits)]
+
+def build_train_and_test(raw_data, index_splits, use_as_test):
+    """
+    raw_data : the matrix to split into parts
+    index_splits : list of list of indexes as returned by slpit_randomly function
+    use_as_test : the split (int) to leave out as test set
+    
+    returns : a training matrix and a test matrix
+    """
+    train_data = np.array(raw_data)
+    train_data[list(zip(*index_splits[use_as_test]))] = 0 #TODO : optimize this line
+    
+    test_data = np.array(raw_data)
+    for i in range(len(index_splits)):
+        if (i == use_as_test):
+            continue
+        test_data[list(zip(*index_splits[i]))] = 0 #TODO : optimize this line
+    assert(np.array_equal(train_data+test_data, raw_data))
+    return train_data, test_data
 
 def average_prediction(matrix):
     average_for_item = np.true_divide(matrix.sum(1), (matrix!=0).sum(1))
@@ -103,23 +131,67 @@ def svd_prediction(matrix, K=15):
     VT2 = VT[:K, :]
     return U2.dot(np.diag(S2)).dot(VT2)
 
-def sgd_prediction(matrix):
-    return np.array(matrix)
+def sgd_prediction(matrix, K=15, learning_rate_factor = 0.01, n_iter = 60000000, verbose = SGD_VERBOSITY): #TODO : Fix this. try with different learning rates
+    """
+        matrix is the training dataset with nonzero entries only where ratings are given
+        
+        verbose = 0 for no logging
+                  1 for inital messages
+                  2 for steps
+    """
+    
+    print_every = n_iter / 100
+    U = np.random.rand(matrix.shape[0],K)
+    V = np.random.rand(matrix.shape[1],K)
+    
+    #iteration_logger = Logger(sieve = log_sieve) #don't need this as of now. TODO (Tobi) : fix
+    
+    non_zero_indices = list(zip(*np.nonzero(matrix)))
+    if verbose > 0 :
+        print("      SGD: sgd_prediction called. K = {}".format(K))
+        print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
+    
+    for t in range(n_iter):
+        learning_rate = learning_rate_factor
+        d,n = random.choice(non_zero_indices)
+        #TODO : if convergence is slow, we could use a bigger batch size (update more indexes at once)
+        U_d = U[d,:]
+        V_n = V[n,:]
+        delta = matrix[d,n] - U_d.dot(V_n)
+        
+        U[d,:] = U_d + learning_rate * delta * V_n
+        V[n,:] = V_n + learning_rate * delta * U_d
+    
+        if t % print_every == 0:
+            score = validate(matrix, U.dot(V.T))
+            print("      SGD : step {}  ({} % done!). fit = {:.4f}".format(t+1, int(100 * (t+1) /n_iter), score))
+        
+    return U.dot(V.T)
 
+def post_process(predictions):
+    predictions[predictions > 5.0] = 5.0
+    predictions[predictions < 1.0] = 1.0
+    
 def run_model(training_data, param1):
     if MODEL == 'average':
         predictions = average_prediction(training_data)
     elif MODEL == 'SVD':
         predictions = svd_prediction(average_prediction(training_data), K=param1)
     elif MODEL == 'SGD':
-        predictions = sgd_prediction(training_data)
+        predictions = sgd_prediction(training_data, K = param1)
+    if POST_PROCESS:
+        post_process(predictions)
     return predictions
 
-def validate(training_data, secret_data, approximation):
-    row_errors = np.zeros((training_data.shape[0],))
-    for i in range(training_data.shape[0]):
-        row_errors[i] = np.where(secret_data[i,:] != 0 , np.square(approximation[i,:] - secret_data[i,:]), 0).sum()
-    return row_errors.sum() / (training_data!=0).sum()
+def validate(secret_data, approximation):
+    error_sum = np.where(secret_data!=0, np.square(approximation-secret_data),0).sum()
+    return math.sqrt(error_sum / (secret_data!=0).sum())
+    
+    #TODO : Cleanup?    
+    #row_errors = np.zeros((training_data.shape[0],))
+    #for i in range(training_data.shape[0]):
+    #    row_errors[i] = np.where(secret_data[i,:] != 0 , np.square(approximation[i,:] - secret_data[i,:]), 0).sum()
+    #return math.sqrt(row_errors.sum() / (secret_data!=0).sum())
 
 
 # load data from file
@@ -130,15 +202,20 @@ print('Running {}...'.format(MODEL))
 if DO_LOCAL_VALIDATION:
     hyper_parameters = HYPER_PARAM if type(HYPER_PARAM) == list else [HYPER_PARAM]
     scores = []
+    print("creating {} splits for Cross-Validation!".format(CV_SPLITS))
+    splits = split_randomly(raw_data)
+    
     for param in hyper_parameters:
+        print("Testing with hyperparameter {}".format(param))
         avg_scores = []
-        for avg_epoch in range(VALIDATION_AVERAGING):
-            print('  > shuffling data for averaging epoch: {}'.format(avg_epoch))
-            training_data, secret_data = build_validation_set(raw_data)
-            print('  > running model...'.format(avg_epoch))
-            avg_scores.append(validate(training_data, secret_data, run_model(training_data, param)))
+        for i in range(CV_SPLITS):
+            training_data, test_data = build_train_and_test(raw_data, splits, i)
+            print('    running model when leaving out split {}'.format(i))
+            avg_scores.append(validate(test_data, run_model(training_data, param)))
+            print('    got score : {}'.format(avg_scores[-1]))
         scores.append([param, np.average(avg_scores)])
-        print('    > Score = {} for param='.format(scores[-1][1]), param)
+        print('  score = {} for param='.format(scores[-1][1]), param)
+        
     if len(scores) > 1:
         npscore = np.array(scores)
         pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
