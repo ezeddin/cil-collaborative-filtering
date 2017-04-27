@@ -124,10 +124,13 @@ def run_model(training_data, param1):
     return predictions
 
 def validate(training_data, secret_data, approximation):
-    row_errors = np.zeros((training_data.shape[0],))
-    for i in range(training_data.shape[0]):
-        row_errors[i] = np.where(secret_data[i,:] != 0 , np.square(approximation[i,:] - secret_data[i,:]), 0).sum()
-    return math.sqrt(row_errors.sum() / (secret_data!=0).sum())
+    error_sum = np.where(secret_data!=0, np.square(approximation-secret_data),0).sum()
+    return math.sqrt(error_sum / (secret_data!=0).sum())
+    #
+    #row_errors = np.zeros((training_data.shape[0],))
+    #for i in range(training_data.shape[0]):
+    #    row_errors[i] = np.where(secret_data[i,:] != 0 , np.square(approximation[i,:] - secret_data[i,:]), 0).sum()
+    #return math.sqrt(row_errors.sum() / (secret_data!=0).sum())
 
 
 # load data from file
