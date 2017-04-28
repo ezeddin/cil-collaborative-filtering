@@ -257,12 +257,6 @@ def run_model(training_data, test_data, param1):
 def validate(secret_data, approximation):
     error_sum = np.where(secret_data!=0, np.square(approximation-secret_data),0).sum()
     return math.sqrt(error_sum / (secret_data!=0).sum())
-    
-    #TODO : Cleanup?    
-    #row_errors = np.zeros((training_data.shape[0],))
-    #for i in range(training_data.shape[0]):
-    #    row_errors[i] = np.where(secret_data[i,:] != 0 , np.square(approximation[i,:] - secret_data[i,:]), 0).sum()
-    #return math.sqrt(row_errors.sum() / (secret_data!=0).sum())
 
 
 def train(args):
