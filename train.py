@@ -23,7 +23,6 @@ NB_USERS = 10000
 NB_ITEMS = 1000
 
 INJECT_TEST_DATA = False
-
 args = None
 
 
@@ -31,7 +30,7 @@ def main():
     global args
     parser = argparse.ArgumentParser(
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--submission', type=bool, default=True,
+    parser.add_argument('--submission', type=bool, default=False,
                         help='Don\'t do local validation, just export submission file.')
     parser.add_argument('--model', type=str, default='SVD',
                         help='Prediction algoritm: average, SVD, SVD2, SGD')
@@ -210,7 +209,7 @@ def sgd_prediction(matrix, K=15, learning_rate_factor=0.01, n_iter=60000000, ver
         U[d,:] = U_d + learning_rate * delta * V_n
         V[n,:] = V_n + learning_rate * delta * U_d
     
-        if t % print_every == 0:
+        if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
             print("      SGD : step {}  ({} % done!). fit = {:.4f}".format(t+1, int(100 * (t+1) /n_iter), score))
         
@@ -257,8 +256,7 @@ def train(args):
         hyper_parameters = eval(args.param) if type(eval(args.param)) == list else [eval(args.param)]
         scores = []
         print("creating {} splits for Cross-Validation!".format(args.cv_splits))
-        splits = split_randomly(raw_data, args.cv_splits)
-        
+        splits = split_randomly(raw_data, args.cv_splits)        
         for param in hyper_parameters:
             print("Testing with hyperparameter {}".format(param))
             avg_scores = []
