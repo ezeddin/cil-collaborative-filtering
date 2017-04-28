@@ -32,7 +32,7 @@ def main():
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--submission', type=bool, default=False,
                         help='Don\'t do local validation, just export submission file.')
-    parser.add_argument('--model', type=str, default='SVD',
+    parser.add_argument('--model', type=str, default='SGD',
                         help='Prediction algoritm: average, SVD, SVD2, SGD')
     parser.add_argument('--cv_splits', type=int, default=8,
                         help='Data splits for cross validation ')
@@ -174,7 +174,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, K=15, learning_rate_factor=0.01, n_iter=60000000, verbose=2): #TODO : Fix this. try with different learning rates
+def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.01, n_iter=60000000, verbose=2): #TODO : Fix this. try with different learning rates
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -202,12 +202,13 @@ def sgd_prediction(matrix, K=15, learning_rate_factor=0.01, n_iter=60000000, ver
         V_n = V[n,:]
         delta = matrix[d,n] - U_d.dot(V_n)
         
-        U[d,:] = U_d + learning_rate * delta * V_n
-        V[n,:] = V_n + learning_rate * delta * U_d
+        U[d,:] = U_d + learning_rate * (delta * V_n - L*U_d)
+        V[n,:] = V_n + learning_rate * (delta * U_d - L*V_n)
     
         if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
-            print("      SGD : step {}  ({} % done!). fit = {:.4f}".format(t+1, int(100 * (t+1) /n_iter), score))
+            test_score = validate(test_data, U.dot(V.T))
+            print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score))
         
     return U.dot(V.T)
 
@@ -217,7 +218,7 @@ def post_process(predictions):
     predictions[predictions < 1.0] = 1.0
 
 
-def run_model(training_data, param1):
+def run_model(training_data, test_data, param1):
     if args.model == 'average':
         predictions = averaging_fill_up(training_data)
     elif args.model == 'SVD':
@@ -225,7 +226,7 @@ def run_model(training_data, param1):
     elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, K=param1, verbose=args.v)
+        predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v)
     if args.postproc:
         post_process(predictions)
     return predictions
@@ -259,7 +260,7 @@ def train(args):
             for i in range(args.cv_splits):
                 training_data, test_data = build_train_and_test(raw_data, splits, i)
                 print('    running model when leaving out split {}'.format(i))
-                avg_scores.append(validate(test_data, run_model(training_data, param)))
+                avg_scores.append(validate(test_data, run_model(training_data,test_data,  param)))
                 print('    got score : {}'.format(avg_scores[-1]))
             scores.append([param, np.average(avg_scores)])
             print('  score = {} for param='.format(scores[-1][1]), param)
