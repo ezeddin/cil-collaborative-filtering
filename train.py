@@ -41,6 +41,8 @@ def main():
                         help='Test on all splits and average scores')
     parser.add_argument('--param', type=str, default="12",
                         help='Hyper parameter, can also be a list')
+    parser.add_argument('--L', type=float, default=0.1,
+                        help='Hyper parameter for SGD')
     parser.add_argument('--n_iter', type=int, default=60000000,
                         help='Number of iterations for SGD')
     parser.add_argument('--postproc', type=bool, default=True,
@@ -179,7 +181,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K, n_iter, verbose, L = 0.1):
+def sgd_prediction(matrix, test_data, K, n_iter, verbose, L=0.1):
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -188,7 +190,7 @@ def sgd_prediction(matrix, test_data, K, n_iter, verbose, L = 0.1):
                   2 for steps
     """
     
-    print_every = n_iter / 100
+    print_every = n_iter / 20
     U = np.random.rand(matrix.shape[0],K)
     V = np.random.rand(matrix.shape[1],K)
     
@@ -258,7 +260,7 @@ def run_model(training_data, test_data, param1):
     elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, test_data, K=param1,  n_iter=args.n_iter, verbose=args.v)
+        predictions = sgd_prediction(training_data, test_data, K=param1,  n_iter=args.n_iter, verbose=args.v, L=args.L)
     if args.postproc:
         post_process(predictions)
     return predictions
