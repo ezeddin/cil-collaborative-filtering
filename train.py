@@ -177,7 +177,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K,   n_iter, verbose, L = 0.1,): #TODO : Fix this. try with different learning rates
+def sgd_prediction(matrix, test_data, K,   n_iter, verbose, L = 0.1):
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -190,7 +190,6 @@ def sgd_prediction(matrix, test_data, K,   n_iter, verbose, L = 0.1,): #TODO : F
     U = np.random.rand(matrix.shape[0],K)
     V = np.random.rand(matrix.shape[1],K)
     
-    #iteration_logger = Logger(sieve = log_sieve) #don't need this as of now. TODO (Tobi) : fix
     
     non_zero_indices = list(zip(*np.nonzero(matrix)))
     if verbose > 0 :
@@ -216,7 +215,7 @@ def sgd_prediction(matrix, test_data, K,   n_iter, verbose, L = 0.1,): #TODO : F
             test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
             print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.4f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score, lr))
         if t == 500000:
-            t_after_100 = datetime.datetime.now() - start_time;
+            t_after_100 = datetime.datetime.now() - start_time
             duration = t_after_100/500000*n_iter*(1 if args.submission else args.cv_splits*len(args.param))
             end = datetime.datetime.now() + duration
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
