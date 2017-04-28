@@ -23,7 +23,7 @@ SUBMISSION_FORMAT='r{{}}_c{{}},{{:.{}f}}\n'.format(ROUND)
 NB_USERS = 10000
 NB_ITEMS = 1000
 
-MIN_LEARNING_RATE = 0.0005
+MIN_LEARNING_RATE = 0.0001
 INJECT_TEST_DATA = False
 args = None
 
@@ -40,7 +40,7 @@ def main():
                         help='Data splits for cross validation ')
     parser.add_argument('--param', type=str, default="12",
                         help='Hyper parameter, can also be a list')
-    parser.add_argument('--learning_rate', type=float, default=0.25,
+    parser.add_argument('--learning_rate', type=float, default=0.03,
                         help='Learning rate of SGD')
     parser.add_argument('--n_iter', type=int, default=60000000,
                         help='Number of iterations for SGD')
@@ -225,11 +225,11 @@ def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.1, n
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
     return U.dot(V.T)
 
-def learning_rate(t, learning_rate):
-    if t % 10000000 == 0:
-        lr = learning_rate / 5
+def learning_rate(t, current):
+    if (t+1) % 10000000 == 0:
+        lr = current / 5
     else:
-        lr = learning_rate
+        lr = current
     return max(lr, MIN_LEARNING_RATE)
 
 
