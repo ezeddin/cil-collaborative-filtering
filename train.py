@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import scipy.sparse
 import time
+import datetime
 from local_vars import USERNAME
 import pickle
 import matplotlib.pyplot as plt
@@ -198,6 +199,7 @@ def sgd_prediction(matrix, K=15, learning_rate_factor=0.01, n_iter=60000000, ver
         print("      SGD: sgd_prediction called. K = {}".format(K))
         print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
     
+    start_time = datetime.datetime.now()
     for t in range(n_iter):
         learning_rate = learning_rate_factor
         d,n = random.choice(non_zero_indices)
@@ -212,6 +214,11 @@ def sgd_prediction(matrix, K=15, learning_rate_factor=0.01, n_iter=60000000, ver
         if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
             print("      SGD : step {}  ({} % done!). fit = {:.4f}".format(t+1, int(100 * (t+1) /n_iter), score))
+        if t == 200000:
+            t_after_100 = datetime.datetime.now() - start_time;
+            duration = t_after_100/200000*n_iter
+            end = datetime.datetime.now() + duration
+            print("Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))
         
     return U.dot(V.T)
 
