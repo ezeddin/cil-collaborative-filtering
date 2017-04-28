@@ -10,14 +10,14 @@ import pickle
 import matplotlib.pyplot as plt
 import math
 from helpers import Logger
-import random
+import random 
 
 #%matplotlib inline
 
 DATA_FILE = 'data/data_train.csv'
 SUBMISSION_EXAMPLE = 'data/sampleSubmission.csv'
 TARGET_FOLDER = 'submissions'
-ROUND = 5
+ROUND = 5 
 SUBMISSION_FORMAT='r{{}}_c{{}},{{:.{}f}}\n'.format(ROUND)
 
 NB_USERS = 10000
@@ -70,7 +70,7 @@ def load_data(filename):
     data = scipy.sparse.csr_matrix((values, (rows, cols)), shape=(NB_ITEMS, NB_USERS), dtype='float')
     nb_ratings = data.getnnz()
 
-    if INJECT_TEST_DATA:
+    if INJECT_TEST_DATA: 
         data = np.array([
             [0, 0, 5, 4, 0, 0],
             [0, 2, 0, 0, 0, 1],
@@ -110,11 +110,11 @@ def print_stats(matrix):
 
 def split_randomly(raw_data, n_splits=8):
     """
-        randomly splits the non-zero indices of the raw_data matrix into n parts.
+        randomly splits the non-zero indices of the raw_data matrix into n parts. 
         a list of length n is returned, each element being the indices of the i-th split
     """
     non_zero_indices = list(zip(*np.nonzero(raw_data)))
-    np.random.shuffle(non_zero_indices)
+    np.random.shuffle(non_zero_indices) 
     size = len(non_zero_indices) // n_splits
     assert(size * n_splits == len(non_zero_indices)), "n chosen for cross validation does not evenly split data. Choose 4, 7, 8, 14, 28, 56"
     
@@ -179,7 +179,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, K=15, learning_rate_factor=0.01, n_iter=60000000, verbose=2): #TODO : Fix this. try with different learning rates
+def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.01, n_iter=60000000, verbose=2): #TODO : Fix this. try with different learning rates
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -208,15 +208,16 @@ def sgd_prediction(matrix, K=15, learning_rate_factor=0.01, n_iter=60000000, ver
         V_n = V[n,:]
         delta = matrix[d,n] - U_d.dot(V_n)
         
-        U[d,:] = U_d + learning_rate * delta * V_n
-        V[n,:] = V_n + learning_rate * delta * U_d
+        U[d,:] = U_d + learning_rate * (delta * V_n - L*U_d)
+        V[n,:] = V_n + learning_rate * (delta * U_d - L*V_n)
     
         if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
-            print("      SGD : step {}  ({} % done!). fit = {:.4f}".format(t+1, int(100 * (t+1) /n_iter), score))
-        if t == 200000:
+            test_score = validate(test_data, U.dot(V.T)) if test_data else -1
+            print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score))
+        if t == 500000:
             t_after_100 = datetime.datetime.now() - start_time;
-            duration = t_after_100/200000*n_iter
+            duration = t_after_100/500000*n_iter
             end = datetime.datetime.now() + duration
             print("Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))
         
@@ -228,7 +229,7 @@ def post_process(predictions):
     predictions[predictions < 1.0] = 1.0
 
 
-def run_model(training_data, param1):
+def run_model(training_data, test_data, param1):
     if args.model == 'average':
         predictions = averaging_fill_up(training_data)
     elif args.model == 'SVD':
@@ -236,7 +237,7 @@ def run_model(training_data, param1):
     elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, K=param1, learning_rate_factor=args.learning_rate, n_iter=args.n_iter, verbose=args.v)
+        predictions = sgd_prediction(training_data, test_data, K=param1, learning_rate_factor=args.learning_rate, n_iter=args.n_iter, verbose=args.v)
     if args.postproc:
         post_process(predictions)
     return predictions
@@ -270,15 +271,15 @@ def train(args):
             for i in range(args.cv_splits):
                 training_data, test_data = build_train_and_test(raw_data, splits, i)
                 print('    running model when leaving out split {}'.format(i))
-                avg_scores.append(validate(test_data, run_model(training_data, param)))
+                avg_scores.append(validate(test_data, run_model(training_data,test_data,  param)))
                 print('    got score : {}'.format(avg_scores[-1]))
             scores.append([param, np.average(avg_scores)])
             print('  score = {} for param='.format(scores[-1][1]), param)
 
-        print('Saving final score in data/scores_<timestamp>.pkl')
-        pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
         if len(scores) > 1:
             npscore = np.array(scores)
+            print('Saving final score in data/scores_<timestamp>.pkl')
+            pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
             try:
                 plt.plot(npscore[:,0], npscore[:,1])
                 plt.xlabel('param')
@@ -288,7 +289,7 @@ def train(args):
     else:
         training_data = raw_data
         assert type(eval(args.param))!=list, "We want to export a submission! Hyperparameter can't be a list!"
-        predictions = run_model(raw_data, eval(args.param))
+        predictions = run_model(raw_data, None, eval(args.param))
         print_stats(predictions)
         filename = TARGET_FOLDER + '/submission_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5])
         write_data(filename, predictions)
