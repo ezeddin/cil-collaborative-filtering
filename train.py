@@ -36,7 +36,9 @@ def main():
     parser.add_argument('--model', type=str, default='SGD',
                         help='Prediction algorithm: average, SVD, SVD2, SGD')
     parser.add_argument('--cv_splits', type=int, default=8,
-                        help='Data splits for cross validation ')
+                        help='Data splits for cross validation')
+    parser.add_argument('--score_averaging', type=bool, default=False,
+                        help='Test on all splits and average scores')
     parser.add_argument('--param', type=str, default="12",
                         help='Hyper parameter, can also be a list')
     parser.add_argument('--n_iter', type=int, default=60000000,
@@ -215,8 +217,15 @@ def sgd_prediction(matrix, test_data, K, n_iter, verbose, L = 0.1):
             test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
             print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.4f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score, lr))
         if t == 500000:
-            t_after_100 = datetime.datetime.now() - start_time
-            duration = t_after_100/500000*n_iter*(1 if args.submission else args.cv_splits*len(args.param))
+            t_after_100 = datetime.datetime.now() - start_time;
+            if args.submission:
+                multi_runs = 1
+            else:
+                if args.score_averaging:
+                    multi_runs = args.cv_splits*len(args.param)
+                else:
+                    multi_runs = len(args.param)
+            duration = t_after_100/500000*n_iter*multi_runs
             end = datetime.datetime.now() + duration
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
     return U.dot(V.T)
@@ -283,10 +292,13 @@ def train(args):
             print("Testing with hyperparameter {}".format(param))
             avg_scores = []
             for i in range(args.cv_splits):
+                if not args.score_averaging and i > 0:
+                    continue
                 training_data, test_data = build_train_and_test(raw_data, splits, i)
                 print('    running model when leaving out split {}'.format(i))
                 avg_scores.append(validate(test_data, run_model(training_data,test_data,  param)))
                 print('    got score : {}'.format(avg_scores[-1]))
+
             scores.append([param, np.average(avg_scores)])
             print('  score = {} for param='.format(scores[-1][1]), param)
 
