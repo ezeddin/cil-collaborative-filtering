@@ -32,7 +32,7 @@ def main():
     parser = argparse.ArgumentParser(
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--submission', type=bool, default=False,
-                        help='Don\'t do local validation, just export submission file.')
+                        help='Omit local validation, just export submission file.')
     parser.add_argument('--model', type=str, default='SGD',
                         help='Prediction algorithm: average, SVD, SVD2, SGD')
     parser.add_argument('--cv_splits', type=int, default=8,
@@ -219,7 +219,7 @@ def sgd_prediction(matrix, test_data, K=15, L = 0.1,  n_iter=40000000, verbose=2
             print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.4f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score, lr))
         if t == 500000:
             t_after_100 = datetime.datetime.now() - start_time;
-            duration = t_after_100/500000*n_iter
+            duration = t_after_100/500000*n_iter*(1 if not args.submission else args.cv_splits)
             end = datetime.datetime.now() + duration
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
     return U.dot(V.T)
@@ -289,10 +289,10 @@ def train(args):
             scores.append([param, np.average(avg_scores)])
             print('  score = {} for param='.format(scores[-1][1]), param)
 
+        print('Saving final score in data/scores_<timestamp>.pkl')
+        npscore = np.array(scores)
+        pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
         if len(scores) > 1:
-            npscore = np.array(scores)
-            print('Saving final score in data/scores_<timestamp>.pkl')
-            pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
             try:
                 plt.plot(npscore[:,0], npscore[:,1])
                 plt.xlabel('param')
