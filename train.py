@@ -27,6 +27,8 @@ INJECT_TEST_DATA = False
 args = None
 
 
+old_settings = np.seterr(all='raise')
+
 def main():
     global args
     parser = argparse.ArgumentParser(
@@ -214,10 +216,16 @@ def sgd_prediction(matrix, test_data, K, verbose, L = 0.1):
         U_d = U[d,:]
         V_n = V[n,:]
         delta = matrix[d,n] - U_d.dot(V_n)
+
+        try:
+            new_U_d = U_d + lr * (delta * V_n - L*U_d)
+            new_V_n = V_n + lr * (delta * U_d - L*V_n)
+        except FloatingPointError:
+            print ("WARNING: FLOATING POINT ERROR CAUGHT!")
+        else:
+            U[d,:] = new_U_d
+            V[n,:] = new_V_n
         
-        U[d,:] = U_d + lr * (delta * V_n - L*U_d)
-        V[n,:] = V_n + lr * (delta * U_d - L*V_n)
-    
         if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
             test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
@@ -239,7 +247,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L = 0.1):
 def learning_rate(t, current, quick = True):
     if quick:
         if  (t < 30000000): 
-            return 0.05
+            return 0.03
         elif(t < 40000000): 
             return 0.01
         elif(t < 45000000): 
