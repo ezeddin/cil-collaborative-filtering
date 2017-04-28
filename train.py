@@ -249,7 +249,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
 def learning_rate(t, current, quick = True):
     if quick:
         if  (t < 30000000): 
-            return 0.03
+            return 0.02
         elif(t < 40000000): 
             return 0.01
         elif(t < 45000000): 
