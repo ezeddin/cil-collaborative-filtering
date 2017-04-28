@@ -215,7 +215,7 @@ def sgd_prediction(matrix, test_data, K, n_iter, verbose, L = 0.1):
         if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
             test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
-            print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.4f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score, lr))
+            print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.5f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score, lr))
         if t == 500000:
             t_after_100 = datetime.datetime.now() - start_time;
             if args.submission:
