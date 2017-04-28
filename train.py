@@ -23,7 +23,6 @@ SUBMISSION_FORMAT='r{{}}_c{{}},{{:.{}f}}\n'.format(ROUND)
 NB_USERS = 10000
 NB_ITEMS = 1000
 
-MIN_LEARNING_RATE = 0.0001
 INJECT_TEST_DATA = False
 args = None
 
@@ -180,7 +179,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.1, n_iter=60000000, verbose=2): #TODO : Fix this. try with different learning rates
+def sgd_prediction(matrix, test_data, K=15, L = 0.1,  n_iter=40000000, verbose=2): #TODO : Fix this. try with different learning rates
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -200,7 +199,7 @@ def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.1, n
         print("      SGD: sgd_prediction called. K = {}, L = {}".format(K, L))
         print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
     
-    lr = learning_rate_factor
+    lr = learning_rate(0,0)
     start_time = datetime.datetime.now()
     for t in range(n_iter):
         lr = learning_rate(t, lr)
@@ -226,20 +225,17 @@ def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.1, n
     return U.dot(V.T)
 
 def learning_rate(t, current):
-    if (t+1) % 10000000 == 0:
-        lr = current / 5
-    else:
-        lr = current
-    return max(lr, MIN_LEARNING_RATE)
-
-
-def learning_rate_2(t, learning_rate):
-    if (t < 10000000):
+    if (t < 6000000): 
+        return 0.05
+    elif(t < 10000000): 
         return 0.01
-    elif (t < 30000000):
-        return 0.001
-    else:
+    elif(t < 15000000): 
+        return 0.002
+    elif(t < 30000000): 
         return 0.0005
+    else:
+        return 0.0001
+    
 
 def post_process(predictions):
     predictions[predictions > 5.0] = 5.0
@@ -254,7 +250,7 @@ def run_model(training_data, test_data, param1):
     elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, test_data, K=param1, learning_rate_factor=args.learning_rate, n_iter=args.n_iter, verbose=args.v)
+        predictions = sgd_prediction(training_data, test_data, K=param1,  n_iter=args.n_iter, verbose=args.v)
     if args.postproc:
         post_process(predictions)
     return predictions
