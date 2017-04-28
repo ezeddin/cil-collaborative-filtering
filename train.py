@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import argparse
 import numpy as np
 import scipy.sparse
 import time
@@ -15,20 +16,36 @@ import random
 DATA_FILE = 'data/data_train.csv'
 SUBMISSION_EXAMPLE = 'data/sampleSubmission.csv'
 TARGET_FOLDER = 'submissions'
-SUBMISSION_FORMAT='r{}_c{},{:.5f}\n'
+ROUND = 5 
+SUBMISSION_FORMAT='r{{}}_c{{}},{{:.{}f}}\n'.format(ROUND)
 
 NB_USERS = 10000
 NB_ITEMS = 1000
 
-DO_LOCAL_VALIDATION = True
-CV_SPLITS = 8
-MODEL = 'SGD'
-HYPER_PARAM = 10
 INJECT_TEST_DATA = False
-ROUND = 5 
-POST_PROCESS = True
 
-SGD_VERBOSITY = 2 #0 for nothing, 1 for basic messages, 2 for steps
+args = None
+
+
+def main():
+    global args
+    parser = argparse.ArgumentParser(
+                        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--submission', type=bool, default=True,
+                        help='Don\'t do local validation, just export submission file.')
+    parser.add_argument('--model', type=str, default='SVD',
+                        help='Prediction algoritm: average, SVD, SVD2, SGD')
+    parser.add_argument('--cv_splits', type=int, default=8,
+                        help='Data splits for cross validation ')
+    parser.add_argument('--param', type=str, default="10",
+                        help='Hyper parameter, can also be a list')
+    parser.add_argument('--postproc', type=bool, default=True,
+                        help='Do post procession like range cropping')
+    parser.add_argument('--v', type=int, default=2,
+                        help='Verbosity: 0 for nothing, 1 for basic messages, 2 for steps')
+    args = parser.parse_args()
+    train(args)
+
 
 def load_data(filename):
     print("Loading data...")
@@ -62,6 +79,7 @@ def load_data(filename):
     print('average rating : {}'.format( data.sum() / nb_ratings))
     return np.asarray(data.todense()), nb_ratings
 
+
 def write_data(filename, matrix):
     print("Writing to file...")     
     with open(filename, 'w') as write_file:
@@ -86,7 +104,7 @@ def print_stats(matrix):
     print("  > Average value is {}".format(np.average(matrix)))
     
 
-def split_randomly(raw_data,n_splits = CV_SPLITS):
+def split_randomly(raw_data, n_splits=8):
     """
         randomly splits the non-zero indices of the raw_data matrix into n parts. 
         a list of length n is returned, each element being the indices of the i-th split
@@ -97,6 +115,7 @@ def split_randomly(raw_data,n_splits = CV_SPLITS):
     assert(size * n_splits == len(non_zero_indices)), "n chosen for cross validation does not evenly split data. Choose 4, 7, 8, 14, 28, 56"
     
     return [non_zero_indices[(a*size): ((a+1)*size)] for a in range(n_splits)]
+
 
 def build_train_and_test(raw_data, index_splits, use_as_test):
     """
@@ -117,14 +136,23 @@ def build_train_and_test(raw_data, index_splits, use_as_test):
     assert(np.array_equal(train_data+test_data, raw_data))
     return train_data, test_data
 
+
 def averaging_fill_up(matrix):
+    """
+        fill up the sparse matrix row by row with the average value of this row
+    """
     average_for_item = np.true_divide(matrix.sum(1), (matrix!=0).sum(1))
     averaged = np.array(matrix, np.float64)
     for i in range(matrix.shape[0]):
         averaged[i,:] = np.where(averaged[i,:] == 0, average_for_item[i], averaged[i,:])
     return averaged
 
+
 def sampling_distribution_fill_up(matrix):
+    """
+        fill up the sparse matrix row by row by sampling from the empirical distribution
+        of the rating in this row.
+    """
     filled = np.array(matrix)
     for i in range(matrix.shape[0]):
         nonzeros_per_row = np.squeeze(matrix[i, np.where(matrix[i,:] != 0.0)[0]])
@@ -133,14 +161,21 @@ def sampling_distribution_fill_up(matrix):
                 filled[i,j] = np.random.choice(nonzeros_per_row, replace=True)
     return filled
 
+
 def svd_prediction(matrix, K=15):
+    """
+        computes SVD from filled up data matrix (not sparse anymore)
+        
+        K: number of singular values to keep (number of 'principle components')
+    """
     U, S, VT = np.linalg.svd(matrix, full_matrices=True)
     U2 = U[:,:K]
     S2 = S[:K]
     VT2 = VT[:K, :]
     return U2.dot(np.diag(S2)).dot(VT2)
 
-def sgd_prediction(matrix, K=15, learning_rate_factor = 0.01, n_iter = 60000000, verbose = SGD_VERBOSITY): #TODO : Fix this. try with different learning rates
+
+def sgd_prediction(matrix, K=15, learning_rate_factor=0.01, n_iter=60000000, verbose=2): #TODO : Fix this. try with different learning rates
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -177,22 +212,25 @@ def sgd_prediction(matrix, K=15, learning_rate_factor = 0.01, n_iter = 60000000,
         
     return U.dot(V.T)
 
+
 def post_process(predictions):
     predictions[predictions > 5.0] = 5.0
     predictions[predictions < 1.0] = 1.0
-    
+
+
 def run_model(training_data, param1):
-    if MODEL == 'average':
+    if args.model == 'average':
         predictions = averaging_fill_up(training_data)
-    elif MODEL == 'SVD':
+    elif args.model == 'SVD':
         predictions = svd_prediction(averaging_fill_up(training_data), K=param1)
-    elif MODEL == 'SVD2':
+    elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
-    elif MODEL == 'SGD':
-        predictions = sgd_prediction(training_data, K = param1)
-    if POST_PROCESS:
+    elif args.model == 'SGD':
+        predictions = sgd_prediction(training_data, K=param1, verbose=args.v)
+    if args.postproc:
         post_process(predictions)
     return predictions
+
 
 def validate(secret_data, approximation):
     error_sum = np.where(secret_data!=0, np.square(approximation-secret_data),0).sum()
@@ -205,38 +243,47 @@ def validate(secret_data, approximation):
     #return math.sqrt(row_errors.sum() / (secret_data!=0).sum())
 
 
-# load data from file
-raw_data, nb_ratings = load_data(DATA_FILE)
+def train(args):
+    # load data from file
+    raw_data, nb_ratings = load_data(DATA_FILE)
 
-# run prediction
-print('Running {}...'.format(MODEL))
-if DO_LOCAL_VALIDATION:
-    hyper_parameters = HYPER_PARAM if type(HYPER_PARAM) == list else [HYPER_PARAM]
-    scores = []
-    print("creating {} splits for Cross-Validation!".format(CV_SPLITS))
-    splits = split_randomly(raw_data)
-    
-    for param in hyper_parameters:
-        print("Testing with hyperparameter {}".format(param))
-        avg_scores = []
-        for i in range(CV_SPLITS):
-            training_data, test_data = build_train_and_test(raw_data, splits, i)
-            print('    running model when leaving out split {}'.format(i))
-            avg_scores.append(validate(test_data, run_model(training_data, param)))
-            print('    got score : {}'.format(avg_scores[-1]))
-        scores.append([param, np.average(avg_scores)])
-        print('  score = {} for param='.format(scores[-1][1]), param)
+    # run prediction
+    print('Running {}...'.format(args.model))
+    if not args.submission:
+        hyper_parameters = eval(args.param) if type(eval(args.param)) == list else [eval(args.param)]
+        scores = []
+        print("creating {} splits for Cross-Validation!".format(args.cv_splits))
+        splits = split_randomly(raw_data, args.cv_splits)
         
-    if len(scores) > 1:
-        npscore = np.array(scores)
-        pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
-        plt.plot(npscore[:,0], npscore[:,1])
-        plt.xlabel('param')
-        plt.ylabel('score')
-else:
-    training_data = raw_data
-    assert type(HYPER_PARAM)!=list, "We want to export a submission! Hyperparameter can't be a list!"
-    predictions = run_model(raw_data, HYPER_PARAM)
-    print_stats(predictions) 
-    filename = TARGET_FOLDER + '/submission_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5])
-    write_data(filename, predictions)
+        for param in hyper_parameters:
+            print("Testing with hyperparameter {}".format(param))
+            avg_scores = []
+            for i in range(args.cv_splits):
+                training_data, test_data = build_train_and_test(raw_data, splits, i)
+                print('    running model when leaving out split {}'.format(i))
+                avg_scores.append(validate(test_data, run_model(training_data, param)))
+                print('    got score : {}'.format(avg_scores[-1]))
+            scores.append([param, np.average(avg_scores)])
+            print('  score = {} for param='.format(scores[-1][1]), param)
+
+        if len(scores) > 1:
+            npscore = np.array(scores)
+            print('Saving final score in data/scores_<timestamp>.pkl')
+            pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
+            try:
+                plt.plot(npscore[:,0], npscore[:,1])
+                plt.xlabel('param')
+                plt.ylabel('score')
+            except:
+                print('Plotting not working.')
+    else:
+        training_data = raw_data
+        assert type(eval(args.param))!=list, "We want to export a submission! Hyperparameter can't be a list!"
+        predictions = run_model(raw_data, eval(args.param))
+        print_stats(predictions)
+        filename = TARGET_FOLDER + '/submission_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5])
+        write_data(filename, predictions)
+
+
+if __name__ == '__main__':
+    main()
