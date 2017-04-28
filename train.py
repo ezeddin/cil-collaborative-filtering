@@ -39,12 +39,12 @@ def main():
                         help='Data splits for cross validation ')
     parser.add_argument('--param', type=str, default="12",
                         help='Hyper parameter, can also be a list')
-    parser.add_argument('--n_iter', type=int, default=40000000,
+    parser.add_argument('--n_iter', type=int, default=60000000,
                         help='Number of iterations for SGD')
     parser.add_argument('--postproc', type=bool, default=True,
                         help='Do post procession like range cropping')
     parser.add_argument('--v', type=int, default=2,
-                        help='Verbosity: 0 for nothing, 1 for basic messages, 2 for steps')
+                        help='Verbosity of sgd: 0 for nothing, 1 for basic messages, 2 for steps')
     args = parser.parse_args()
     train(args)
 
@@ -177,7 +177,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K,   n_iter, verbose, L = 0.1):
+def sgd_prediction(matrix, test_data, K, n_iter, verbose, L = 0.1):
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -222,16 +222,18 @@ def sgd_prediction(matrix, test_data, K,   n_iter, verbose, L = 0.1):
     return U.dot(V.T)
 
 def learning_rate(t, current):
-    if (t < 6000000): 
+    if  (t < 30000000): 
         return 0.05
-    elif(t < 10000000): 
+    elif(t < 40000000): 
         return 0.01
-    elif(t < 20000000): 
+    elif(t < 45000000): 
         return 0.002
-    elif(t < 30000000): 
+    elif(t < 50000000): 
         return 0.0005
-    else:
+    elif(t < 55000000):
         return 0.0001
+    else:
+        return 0.00002
     
 
 def post_process(predictions):
