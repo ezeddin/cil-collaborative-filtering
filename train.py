@@ -9,14 +9,14 @@ import pickle
 import matplotlib.pyplot as plt
 import math
 from helpers import Logger
-import random 
+import random
 
 #%matplotlib inline
 
 DATA_FILE = 'data/data_train.csv'
 SUBMISSION_EXAMPLE = 'data/sampleSubmission.csv'
 TARGET_FOLDER = 'submissions'
-ROUND = 5 
+ROUND = 5
 SUBMISSION_FORMAT='r{{}}_c{{}},{{:.{}f}}\n'.format(ROUND)
 
 NB_USERS = 10000
@@ -69,7 +69,7 @@ def load_data(filename):
     data = scipy.sparse.csr_matrix((values, (rows, cols)), shape=(NB_ITEMS, NB_USERS), dtype='float')
     nb_ratings = data.getnnz()
 
-    if INJECT_TEST_DATA: 
+    if INJECT_TEST_DATA:
         data = np.array([
             [0, 0, 5, 4, 0, 0],
             [0, 2, 0, 0, 0, 1],
@@ -109,11 +109,11 @@ def print_stats(matrix):
 
 def split_randomly(raw_data, n_splits=8):
     """
-        randomly splits the non-zero indices of the raw_data matrix into n parts. 
+        randomly splits the non-zero indices of the raw_data matrix into n parts.
         a list of length n is returned, each element being the indices of the i-th split
     """
     non_zero_indices = list(zip(*np.nonzero(raw_data)))
-    np.random.shuffle(non_zero_indices) 
+    np.random.shuffle(non_zero_indices)
     size = len(non_zero_indices) // n_splits
     assert(size * n_splits == len(non_zero_indices)), "n chosen for cross validation does not evenly split data. Choose 4, 7, 8, 14, 28, 56"
     
@@ -268,10 +268,10 @@ def train(args):
             scores.append([param, np.average(avg_scores)])
             print('  score = {} for param='.format(scores[-1][1]), param)
 
+        print('Saving final score in data/scores_<timestamp>.pkl')
+        pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
         if len(scores) > 1:
             npscore = np.array(scores)
-            print('Saving final score in data/scores_<timestamp>.pkl')
-            pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
             try:
                 plt.plot(npscore[:,0], npscore[:,1])
                 plt.xlabel('param')
