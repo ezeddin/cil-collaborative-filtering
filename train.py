@@ -39,8 +39,8 @@ def main():
                         help='Prediction algorithm: average, SVD, SVD2, SGD')
     parser.add_argument('--cv_splits', type=int, default=8,
                         help='Data splits for cross validation')
-    parser.add_argument('--score_averaging', type=bool, default=False,
-                        help='Test on all splits and average scores')
+    parser.add_argument('--score_averaging', type=int, default=1,
+                        help='On how many of the splits should be tested?')
     parser.add_argument('--quick', type=bool, default=True,
                         help='Run a quick version. This should be good enough. If false, takes a loong time')
     parser.add_argument('--param', type=str, default="12",
@@ -237,10 +237,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
             if args.submission:
                 multi_runs = 1
             else:
-                if args.score_averaging:
-                    multi_runs = args.cv_splits*len(args.param)
-                else:
-                    multi_runs = len(args.param)
+                multi_runs = len(args.param)*args.score_averaging
             duration = t_after_100/500000*n_iter*multi_runs
             end = datetime.datetime.now() + duration
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
@@ -323,7 +320,7 @@ def train(args):
             print("Testing with hyperparameter {}".format(param))
             avg_scores = []
             for i in range(args.cv_splits):
-                if not args.score_averaging and i > 0:
+                if i >= args.score_averaging:
                     continue
                 training_data, test_data = build_train_and_test(raw_data, splits, i)
                 print('    running model when leaving out split {}'.format(i))
