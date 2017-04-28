@@ -45,6 +45,8 @@ def main():
                         help='Run a quick version. This should be good enough. If false, takes a loong time')
     parser.add_argument('--param', type=str, default="12",
                         help='Hyper parameter, can also be a list')
+    parser.add_argument('--L', type=float, default=0.1,
+                        help='Hyper parameter for SGD')
     parser.add_argument('--postproc', type=bool, default=True,
                         help='Do post procession like range cropping')
     parser.add_argument('--v', type=int, default=2,
@@ -181,7 +183,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K, verbose, L = 0.1):
+def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -209,7 +211,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L = 0.1):
     lr = learning_rate(0,0)
     start_time = datetime.datetime.now()
     for t in range(n_iter):
-        lr = learning_rate(t, lr, quick) #TODO : Don't call this every time
+        lr = learning_rate(t, lr, quick) #TODO : Don't calculate this every time
         d,n = random.choice(non_zero_indices)
         
         #TODO : if convergence is slow, we could use a bigger batch size (update more indexes at once)
@@ -287,7 +289,7 @@ def run_model(training_data, test_data, param1):
     elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v)
+        predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v, L=args.L)
     if args.postproc:
         post_process(predictions)
     return predictions
