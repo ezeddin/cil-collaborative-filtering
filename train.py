@@ -52,6 +52,8 @@ def main():
     parser.add_argument('--v', type=int, default=2,
                         help='Verbosity of sgd: 0 for nothing, 1 for basic messages, 2 for steps')
     args = parser.parse_args()
+    args.param = eval(args.param)
+    args.param = args.param if type(args.param) == list else [args.param]
     train(args)
 
 
@@ -312,11 +314,10 @@ def train(args):
     # run prediction
     print('Running {}...'.format(args.model))
     if not args.submission:
-        hyper_parameters = eval(args.param) if type(eval(args.param)) == list else [eval(args.param)]
         scores = []
         print("creating {} splits for Cross-Validation!".format(args.cv_splits))
         splits = split_randomly(raw_data, args.cv_splits)        
-        for param in hyper_parameters:
+        for param in args.param:
             print("Testing with hyperparameter {}".format(param))
             avg_scores = []
             for i in range(args.cv_splits):
@@ -347,8 +348,8 @@ def train(args):
                 print('Plotting not working.')
     else:
         training_data = raw_data
-        assert type(eval(args.param))!=list, "We want to export a submission! Hyperparameter can't be a list!"
-        predictions = run_model(raw_data, None, eval(args.param))
+        assert len(args.param) == 1, "We want to export a submission! Hyperparameter can't be a list!"
+        predictions = run_model(raw_data, None, args.param)
         print_stats(predictions)
         filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.param, args.L)
         write_data(filename, predictions)
