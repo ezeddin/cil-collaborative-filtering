@@ -327,7 +327,12 @@ def train(args):
 
         print('Saving final score in data/scores_<timestamp>.pkl')
         npscore = np.array(scores)
-        pickle.dump(npscore, open('data/scores_{}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5]), 'wb'))
+        if len(args.param) > 1:
+            K_param = '()'
+        else:
+            K_param = str(args.param)
+        score_filename = 'data/scores_{}_{}_{:.3}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_param, args.L)
+        pickle.dump(npscore, open(score_filename, 'wb'))
         if len(scores) > 1:
             try:
                 plt.plot(npscore[:,0], npscore[:,1])
@@ -340,7 +345,7 @@ def train(args):
         assert type(eval(args.param))!=list, "We want to export a submission! Hyperparameter can't be a list!"
         predictions = run_model(raw_data, None, eval(args.param))
         print_stats(predictions)
-        filename = TARGET_FOLDER + '/submission_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5])
+        filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.param, args.L)
         write_data(filename, predictions)
 
 
