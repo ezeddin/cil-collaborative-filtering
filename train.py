@@ -32,15 +32,15 @@ def main():
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--submission', type=bool, default=False,
                         help='Don\'t do local validation, just export submission file.')
-    parser.add_argument('--model', type=str, default='SVD',
-                        help='Prediction algoritm: average, SVD, SVD2, SGD')
+    parser.add_argument('--model', type=str, default='SGD',
+                        help='Prediction algorithm: average, SVD, SVD2, SGD')
     parser.add_argument('--cv_splits', type=int, default=8,
                         help='Data splits for cross validation ')
     parser.add_argument('--param', type=str, default="10",
                         help='Hyper parameter, can also be a list')
     parser.add_argument('--learning_rate', type=float, default=0.01,
                         help='Learning rate of SGD')
-    parser.add_argument('--n_iter', type=float, default=60e6,
+    parser.add_argument('--n_iter', type=int, default=60000000,
                         help='Number of iterations for SGD')
     parser.add_argument('--postproc', type=bool, default=True,
                         help='Do post procession like range cropping')
@@ -229,7 +229,7 @@ def run_model(training_data, param1):
     elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, K=param1, learning_rate_factor=args.learning_rate, n_iter=arg.n_iter, verbose=args.v)
+        predictions = sgd_prediction(training_data, K=param1, learning_rate_factor=args.learning_rate, n_iter=args.n_iter, verbose=args.v)
     if args.postproc:
         post_process(predictions)
     return predictions
