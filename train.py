@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import scipy.sparse
 import time
+import datetime
 from local_vars import USERNAME
 import pickle
 import matplotlib.pyplot as plt
@@ -200,6 +201,7 @@ def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.1, n
         print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
     
     lr = learning_rate_factor
+    start_time = datetime.datetime.now()
     for t in range(n_iter):
         lr = learning_rate(t, lr)
         d,n = random.choice(non_zero_indices)
@@ -214,9 +216,13 @@ def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.1, n
     
         if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
-            test_score = validate(test_data, U.dot(V.T))
+            test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
             print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.4f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score, lr))
-        
+        if t == 500000:
+            t_after_100 = datetime.datetime.now() - start_time;
+            duration = t_after_100/500000*n_iter
+            end = datetime.datetime.now() + duration
+            print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
     return U.dot(V.T)
 
 def learning_rate(t, learning_rate):
@@ -300,7 +306,7 @@ def train(args):
     else:
         training_data = raw_data
         assert type(eval(args.param))!=list, "We want to export a submission! Hyperparameter can't be a list!"
-        predictions = run_model(raw_data, eval(args.param))
+        predictions = run_model(raw_data, None, eval(args.param))
         print_stats(predictions)
         filename = TARGET_FOLDER + '/submission_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5])
         write_data(filename, predictions)
