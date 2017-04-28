@@ -22,6 +22,7 @@ SUBMISSION_FORMAT='r{{}}_c{{}},{{:.{}f}}\n'.format(ROUND)
 NB_USERS = 10000
 NB_ITEMS = 1000
 
+MIN_LEARNING_RATE = 0.0005
 INJECT_TEST_DATA = False
 args = None
 
@@ -36,9 +37,9 @@ def main():
                         help='Prediction algorithm: average, SVD, SVD2, SGD')
     parser.add_argument('--cv_splits', type=int, default=8,
                         help='Data splits for cross validation ')
-    parser.add_argument('--param', type=str, default="10",
+    parser.add_argument('--param', type=str, default="12",
                         help='Hyper parameter, can also be a list')
-    parser.add_argument('--learning_rate', type=float, default=0.01,
+    parser.add_argument('--learning_rate', type=float, default=0.25,
                         help='Learning rate of SGD')
     parser.add_argument('--n_iter', type=int, default=60000000,
                         help='Number of iterations for SGD')
@@ -178,7 +179,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.01, n_iter=60000000, verbose=2): #TODO : Fix this. try with different learning rates
+def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.1, n_iter=60000000, verbose=2): #TODO : Fix this. try with different learning rates
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -195,27 +196,44 @@ def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.01, 
     
     non_zero_indices = list(zip(*np.nonzero(matrix)))
     if verbose > 0 :
-        print("      SGD: sgd_prediction called. K = {}".format(K))
+        print("      SGD: sgd_prediction called. K = {}, L = {}".format(K, L))
         print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
     
+    lr = learning_rate_factor
     for t in range(n_iter):
-        learning_rate = learning_rate_factor
+        lr = learning_rate(t, lr)
         d,n = random.choice(non_zero_indices)
+        
         #TODO : if convergence is slow, we could use a bigger batch size (update more indexes at once)
         U_d = U[d,:]
         V_n = V[n,:]
         delta = matrix[d,n] - U_d.dot(V_n)
         
-        U[d,:] = U_d + learning_rate * (delta * V_n - L*U_d)
-        V[n,:] = V_n + learning_rate * (delta * U_d - L*V_n)
+        U[d,:] = U_d + lr * (delta * V_n - L*U_d)
+        V[n,:] = V_n + lr * (delta * U_d - L*V_n)
     
         if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
             test_score = validate(test_data, U.dot(V.T))
-            print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score))
+            print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.4f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score, lr))
         
     return U.dot(V.T)
 
+def learning_rate(t, learning_rate):
+    if t % 10000000 == 0:
+        lr = learning_rate / 5
+    else:
+        lr = learning_rate
+    return max(lr, MIN_LEARNING_RATE)
+
+
+def learning_rate_2(t, learning_rate):
+    if (t < 10000000):
+        return 0.01
+    elif (t < 30000000):
+        return 0.001
+    else:
+        return 0.0005
 
 def post_process(predictions):
     predictions[predictions > 5.0] = 5.0
