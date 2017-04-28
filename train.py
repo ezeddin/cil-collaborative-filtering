@@ -179,7 +179,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K,   n_iter, verbose, L = 0.1,): #TODO : Fix this. try with different learning rates
+def sgd_prediction(matrix, test_data, K,   n_iter, verbose, L = 0.1):
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -192,7 +192,6 @@ def sgd_prediction(matrix, test_data, K,   n_iter, verbose, L = 0.1,): #TODO : F
     U = np.random.rand(matrix.shape[0],K)
     V = np.random.rand(matrix.shape[1],K)
     
-    #iteration_logger = Logger(sieve = log_sieve) #don't need this as of now. TODO (Tobi) : fix
     
     non_zero_indices = list(zip(*np.nonzero(matrix)))
     if verbose > 0 :
