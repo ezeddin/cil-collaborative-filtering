@@ -39,9 +39,7 @@ def main():
                         help='Data splits for cross validation ')
     parser.add_argument('--param', type=str, default="12",
                         help='Hyper parameter, can also be a list')
-    parser.add_argument('--learning_rate', type=float, default=0.03,
-                        help='Learning rate of SGD')
-    parser.add_argument('--n_iter', type=int, default=60000000,
+    parser.add_argument('--n_iter', type=int, default=40000000,
                         help='Number of iterations for SGD')
     parser.add_argument('--postproc', type=bool, default=True,
                         help='Do post procession like range cropping')
@@ -179,7 +177,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K=15, L = 0.1,  n_iter=40000000, verbose=2): #TODO : Fix this. try with different learning rates
+def sgd_prediction(matrix, test_data, K,   n_iter, verbose, L = 0.1,): #TODO : Fix this. try with different learning rates
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
