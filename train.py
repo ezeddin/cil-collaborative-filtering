@@ -39,10 +39,10 @@ def main():
                         help='Data splits for cross validation')
     parser.add_argument('--score_averaging', type=bool, default=False,
                         help='Test on all splits and average scores')
+    parser.add_argument('--quick', type=bool, default=True,
+                        help='Run a quick version. This should be good enough. If false, takes a loong time')
     parser.add_argument('--param', type=str, default="12",
                         help='Hyper parameter, can also be a list')
-    parser.add_argument('--n_iter', type=int, default=60000000,
-                        help='Number of iterations for SGD')
     parser.add_argument('--postproc', type=bool, default=True,
                         help='Do post procession like range cropping')
     parser.add_argument('--v', type=int, default=2,
@@ -179,7 +179,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K, n_iter, verbose, L = 0.1):
+def sgd_prediction(matrix, test_data, K, verbose, L = 0.1):
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -187,6 +187,12 @@ def sgd_prediction(matrix, test_data, K, n_iter, verbose, L = 0.1):
                   1 for inital messages
                   2 for steps
     """
+    quick = args.quick
+    if quick:
+        n_iter = 60000000
+    else:
+        n_iter = 140000000
+    
     
     print_every = n_iter / 100
     U = np.random.rand(matrix.shape[0],K)
@@ -201,7 +207,7 @@ def sgd_prediction(matrix, test_data, K, n_iter, verbose, L = 0.1):
     lr = learning_rate(0,0)
     start_time = datetime.datetime.now()
     for t in range(n_iter):
-        lr = learning_rate(t, lr)
+        lr = learning_rate(t, lr, quick) #TODO : Don't call this every time
         d,n = random.choice(non_zero_indices)
         
         #TODO : if convergence is slow, we could use a bigger batch size (update more indexes at once)
@@ -230,19 +236,34 @@ def sgd_prediction(matrix, test_data, K, n_iter, verbose, L = 0.1):
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
     return U.dot(V.T)
 
-def learning_rate(t, current):
-    if  (t < 30000000): 
-        return 0.05
-    elif(t < 40000000): 
-        return 0.01
-    elif(t < 45000000): 
-        return 0.002
-    elif(t < 50000000): 
-        return 0.0005
-    elif(t < 55000000):
-        return 0.0001
+def learning_rate(t, current, quick = True):
+    if quick:
+        if  (t < 30000000): 
+            return 0.05
+        elif(t < 40000000): 
+            return 0.01
+        elif(t < 45000000): 
+            return 0.002
+        elif(t < 50000000): 
+            return 0.0005
+        elif(t < 55000000):
+            return 0.0001
+        else:
+            return 0.00002
     else:
-        return 0.00002
+        if  (t < 40000000): 
+            return 0.05
+        elif(t < 60000000): 
+            return 0.01
+        elif(t < 80000000): 
+            return 0.002
+        elif(t <100000000): 
+            return 0.0005
+        elif(t <120000000):
+            return 0.0001
+        else:
+            return 0.00002
+
     
 
 def post_process(predictions):
@@ -258,7 +279,7 @@ def run_model(training_data, test_data, param1):
     elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, test_data, K=param1,  n_iter=args.n_iter, verbose=args.v)
+        predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v)
     if args.postproc:
         post_process(predictions)
     return predictions
