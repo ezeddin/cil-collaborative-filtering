@@ -70,11 +70,11 @@ To see the `STDOUT` stream of a running job, you can type `bpeek <JOB_ID>`.
 You can even connect to the machine on which the job is running by `bjob_connect <JOB_ID>`.
 Running jobs as well as pending jobs can be killed with `bkill <JOB_ID>`.
 
-If the job finished, a log file containing the complete `STDOUT` stream is written called `lsf_<JOB_ID>.<somethingidontremember>`.
+If the job finished, a log file containing the complete `STDOUT` stream is written called `lsf.o<JOB_ID>`.
 
 
 Example
 -------
 
 I run my python script using
-`bsub -n 8 -W 04:00 -N -B -R "rusage[mem=512]" "python3 train.py --model=SGD --cv_splits=8 --param=list(range(2,20)) --n_iter=20000000"`
+`bsub -n 1 -W 00:30 -N -B -R "rusage[mem=512]" "python3 train.py --model=SGD --cv_splits=8 --param=list(range(2,20)) --n_iter=20000000"`
