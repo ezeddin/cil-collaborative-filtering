@@ -220,7 +220,7 @@ def sgd_prediction(matrix, test_data, K=15, L = 0.1, learning_rate_factor=0.1, n
             print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.4f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score, lr))
         if t == 500000:
             t_after_100 = datetime.datetime.now() - start_time;
-            duration = t_after_100/500000*n_iter*(1 if not args.submission else args.cv_splits)
+            duration = t_after_100/500000*n_iter*(1 if args.submission else args.cv_splits*len(args.param))
             end = datetime.datetime.now() + duration
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
     return U.dot(V.T)
@@ -261,17 +261,19 @@ def run_model(training_data, test_data, param1):
 
 
 def validate(secret_data, approximation):
+    """
+        local cross validation with a test set using the same equation as Kaggle
+    """
     error_sum = np.where(secret_data!=0, np.square(approximation-secret_data),0).sum()
     return math.sqrt(error_sum / (secret_data!=0).sum())
-    
-    #TODO : Cleanup?    
-    #row_errors = np.zeros((training_data.shape[0],))
-    #for i in range(training_data.shape[0]):
-    #    row_errors[i] = np.where(secret_data[i,:] != 0 , np.square(approximation[i,:] - secret_data[i,:]), 0).sum()
-    #return math.sqrt(row_errors.sum() / (secret_data!=0).sum())
 
 
 def train(args):
+    """
+        Main routine that loads data and trains the model. At the end, it either
+        exports a submission file or it exports the scores from the local cross
+        validation as a pickle file.
+    """
     # load data from file
     raw_data, nb_ratings = load_data(DATA_FILE)
 
