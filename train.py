@@ -229,7 +229,7 @@ def learning_rate(t, current):
         return 0.05
     elif(t < 10000000): 
         return 0.01
-    elif(t < 15000000): 
+    elif(t < 20000000): 
         return 0.002
     elif(t < 30000000): 
         return 0.0005
