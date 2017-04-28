@@ -194,7 +194,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L = 0.1):
         n_iter = 140000000
     
     
-    print_every = n_iter / 100
+    print_every = n_iter / 20
     U = np.random.rand(matrix.shape[0],K)
     V = np.random.rand(matrix.shape[1],K)
     
