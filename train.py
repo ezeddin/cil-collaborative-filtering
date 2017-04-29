@@ -199,7 +199,6 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
     else:
         n_iter = 140000000
     
-    
     print_every = n_iter / 20
     U = np.random.rand(matrix.shape[0],K)
     V = np.random.rand(matrix.shape[1],K)
@@ -215,6 +214,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
     for t in range(n_iter):
         lr = learning_rate(t, lr, quick) #TODO : Don't calculate this every time
         d,n = random.choice(non_zero_indices)
+            
         
         #TODO : if convergence is slow, we could use a bigger batch size (update more indexes at once)
         U_d = U[d,:]
@@ -349,7 +349,7 @@ def train(args):
     else:
         training_data = raw_data
         assert len(args.param) == 1, "We want to export a submission! Hyperparameter can't be a list!"
-        predictions = run_model(raw_data, None, args.param)
+        predictions = run_model(raw_data, None, args.param[0])
         print_stats(predictions)
         filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.param, args.L)
         write_data(filename, predictions)
