@@ -215,8 +215,6 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
         biasU = np.zeros(matrix.shape[0])
         biasV = np.zeros(matrix.shape[1])
 
-    L2 = 2 * L #TODO : Find better formula
-    
     non_zero_indices = list(zip(*np.nonzero(matrix)))
     global_mean = matrix.sum() / len(non_zero_indices)
 
@@ -279,8 +277,10 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
             duration = t_after_100/500000*SGD_ITER*multi_runs
             end = datetime.datetime.now() + duration
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
-    return U.dot(V.T) + biasU.reshape(-1,1) + biasV
-
+    if use_bias:
+        return U.dot(V.T) + biasU.reshape(-1,1) + biasV
+    else:
+        return U.dot(V.T)
 
 
 def sgd_learning_rate(t, current):

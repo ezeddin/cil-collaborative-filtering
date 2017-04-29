@@ -6,7 +6,7 @@ K = [3, 6, 10, 15, 20]
 L2s = [0.05,0.08,0.1, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30]
 
 
-submission = 'bsub -n 1 -W 00:30 -R "rusage[mem=700]" "python3 train.py --param={} --L=0.084 --L2={} "'
+submission = 'bsub -n 1 -W 2:00 -R "rusage[mem=700]" "python3 train.py --param={} --L=0.084 --L2={} "'
 
 if input('Delete all previous score files? (y/n) ') == 'y':
     os.system('rm data/scores_*')
