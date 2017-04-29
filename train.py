@@ -29,7 +29,7 @@ args = None
 
 old_settings = np.seterr(all='raise')
 
-def main(arguments):
+def main(arguments, matrix=None):
     global args
     parser = argparse.ArgumentParser(
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -51,11 +51,18 @@ def main(arguments):
                         help='Do post procession like range cropping')
     parser.add_argument('--v', type=int, default=2,
                         help='Verbosity of sgd: 0 for nothing, 1 for basic messages, 2 for steps')
+    parser.add_argument('--external_matrix', type=bool, default=False,
+                        help='In a multiprocessing environment: get matrices from external arguments')
     args = parser.parse_args(arguments)
     args.param = eval(args.param)
     args.param = args.param if type(args.param) == list else [args.param]
-    return train()
 
+    if not args.external_matrix:
+        # load data from file
+        return train(load_data(DATA_FILE))
+    else:
+        # data is given in argument to main()
+        return train(matrix)
 
 def load_data(filename):
     print("Loading data...")
@@ -87,7 +94,7 @@ def load_data(filename):
 
     print('Dataset has {} non zero values'.format(nb_ratings))
     print('average rating : {}'.format( data.sum() / nb_ratings))
-    return np.asarray(data.todense()), nb_ratings
+    return np.asarray(data.todense())
 
 
 def write_data(filename, matrix):
@@ -245,6 +252,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
     return U.dot(V.T)
 
+
 def learning_rate(t, current, quick = True):
     if quick:
         if  (t < 30000000): 
@@ -272,7 +280,6 @@ def learning_rate(t, current, quick = True):
             return 0.0001
         else:
             return 0.00002
-
     
 
 def post_process(predictions):
@@ -302,16 +309,12 @@ def validate(secret_data, approximation):
     return math.sqrt(error_sum / (secret_data!=0).sum())
 
 
-def train():
+def train(raw_data):
     """
         Main routine that loads data and trains the model. At the end, it either
         exports a submission file or it exports the scores from the local cross
         validation as a pickle file.
     """
-    # load data from file
-    raw_data, nb_ratings = load_data(DATA_FILE)
-
-    # run prediction
     print('Running {}...'.format(args.model))
     if not args.submission:
         scores = []

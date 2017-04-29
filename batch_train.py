@@ -6,19 +6,22 @@ import numpy as np
 import scipy.io
 import pickle
 import time
+import sys
 
 """
 from http://stackoverflow.com/questions/15414027/multiprocessing-pool-makes-numpy-matrix-multiplication-slower
 """
 
-params = '--model=SVD --cv_splits=14 --score_averaging=2 --param={} --L={:.5}'
+params = '--model=SGD --cv_splits=14 --score_averaging=3 --external_matrix=True --param={} --L={:.5}'
+
+raw_data = None
 
 def worker_function(result_queue, worker_index, k, l):
     # Work on a certain task of the grid search
-    result_queue.put((worker_index, k, l, train.main(params.format(k,l).split())))
+    result_queue.put((worker_index, k, l, train.main(params.format(k,l).split(), raw_data)))
 
 
-def work():
+def work(K_chunk):
     # after importing numpy, reset the CPU affinity of the parent process so
     # that it will use all cores
     os.system("taskset -p 0xff %d" % os.getpid())
@@ -27,11 +30,12 @@ def work():
     # Prepare child processes.
     children = []
     i = 0
-    for k in range(4,6):#range(2,130,2):
+    # start processes for every L value in two different K values
+    for k in K_chunk:
         if k < 30:
-            L=np.linspace(0.08,0.1,2)#np.linspace(0.03,0.11,15)+0.006/30*k
+            L=np.linspace(0.03,0.11,2)+0.006/30*k
         else:
-            L=np.linspace(0.2,0.2,4)#np.linspace(0.03,0.11,15)+0.006 
+            L=np.linspace(0.03,0.11,2)+0.006 
         for l in L:
             children.append(
                 multiprocessing.Process(
@@ -54,7 +58,7 @@ def work():
     print('Waiting for processes to return...')
     for _ in range(i):
         ind, k, l, result = result_queue.get(block=True)
-        print('Process #{:03} with datapoint ({:2}, {:.4}) returned {}'.format(ind, k, l, result))
+        print('Process #{:03} with datapoint ({:2}, {:.4}) returned {}'.format(ind, k, l, result[0][0]))
         K.append(k)
         L.append(l)
         Scores.append(result[0][1])
@@ -64,9 +68,16 @@ def work():
     return (K, L, Scores)
 
 
-def main():
+def main(argv):
+    global raw_data
+    print('Loading dataset once:')
+    raw_data = train.load_data(train.DATA_FILE)
+
     t0 = datetime.datetime.now()
-    result = work()
+    Ks = eval(argv[0])
+    assert type(Ks) == list, 'Please provide a python list as argument!'
+    print('Starting workers for K={}'.format(Ks))
+    result = work(Ks)
     duration = datetime.datetime.now() - t0
     print('Finished. Duration: {}'.format(str(duration).split('.')[0]))
     filename = 'data/grid_search_{}'.format(time.strftime('%c').replace(':','-')[4:-5])
@@ -78,4 +89,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
