@@ -256,16 +256,16 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
 
 def sgd_learning_rate(t, current):
     result = 0
-    percent_done = t / SGD_ITER
-    if  (t < 2/6): 
+    done = t / SGD_ITER
+    if   done < 2/6: 
         result =  0.03
-    elif(t < 3/6): 
+    elif done < 3/6: 
         result =  0.01
-    elif(t < 4/6): 
+    elif done < 4/6: 
         result =  0.002
-    elif(t < 5/6): 
+    elif done < 5/6: 
         result =  0.0005
-    elif(t < 5.5/6):
+    elif done < 5.5/6:
         result =  0.0001
     else:
         result =  0.00002
