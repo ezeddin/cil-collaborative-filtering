@@ -1,9 +1,8 @@
 import os
 import numpy as np
 
-K = list(range(2,100,2))
-L = np.logspace(np.log10(0.0005), np.log10(0.2), 20)
-submission = 'bsub -n 1 -W 00:30 -R "rusage[mem=512]" "python3 train.py --model=SGD --cv_splits=14 --score_averaging=2 --param={} --L={:.5}"'
+K = list(range(2,194,4))
+submission = 'bsub -n 1 -W 00:30 -R "rusage[mem=700]" "python3 batch_train.py {}"'
 
 if input('Delete all previous score files? (y/n) ') == 'y':
     os.system('rm data/scores_*')
@@ -11,6 +10,7 @@ if input('Delete all previous score files? (y/n) ') == 'y':
 print('Starting submitting jobs:')
 i = 0
 for k in K:
-    for l in L:
-        print('Submitting for K={} and L={:.3}: {}'.format(k, l, submission.format(k, l)))
-        os.system(submission.format(k, l))
+    k_list = '[{},{}]'.format(k,k+2)
+    print('Submitting job #{:02} for K={}: {}'.format(i, k_list, submission.format(k_list)))
+    #os.system(submission.format(k, l))
+    i += 1

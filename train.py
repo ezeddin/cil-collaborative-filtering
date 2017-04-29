@@ -30,7 +30,7 @@ args = None
 
 old_settings = np.seterr(all='raise')
 
-def main():
+def main(arguments, matrix=None):
     global args
     parser = argparse.ArgumentParser(
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -55,12 +55,18 @@ def main():
     parser.add_argument('--n_messages', type=int, default=20,
                         help='The number of messages to print for the sgd. Only relevant when --v==2')
 
-    args = parser.parse_args()
+    parser.add_argument('--external_matrix', type=bool, default=False,
+                        help='In a multiprocessing environment: get matrices from external arguments')
+    args = parser.parse_args(arguments)
     args.param = eval(args.param)
     args.param = args.param if type(args.param) == list else [args.param]
 
-    train(args)
-
+    if not args.external_matrix:
+        # load data from file
+        return train(load_data(DATA_FILE))
+    else:
+        # data is given in argument to main()
+        return train(matrix)
 
 def load_data(filename):
     print("Loading data...")
@@ -92,7 +98,7 @@ def load_data(filename):
 
     print('Dataset has {} non zero values'.format(nb_ratings))
     print('average rating : {}'.format( data.sum() / nb_ratings))
-    return np.asarray(data.todense()), nb_ratings
+    return np.asarray(data.todense())
 
 
 def write_data(filename, matrix):
@@ -247,6 +253,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
     return U.dot(V.T)
 
 
+
 def sgd_learning_rate(t, current):
     result = 0
     percent_done = t / SGD_ITER
@@ -263,7 +270,7 @@ def sgd_learning_rate(t, current):
     else:
         result =  0.00002
     return result * args.lr_factor
-    
+
 
 def post_process(predictions):
     predictions[predictions > 5.0] = 5.0
@@ -292,16 +299,12 @@ def validate(secret_data, approximation):
     return math.sqrt(error_sum / (secret_data!=0).sum())
 
 
-def train(args):
+def train(raw_data):
     """
         Main routine that loads data and trains the model. At the end, it either
         exports a submission file or it exports the scores from the local cross
         validation as a pickle file.
     """
-    # load data from file
-    raw_data, nb_ratings = load_data(DATA_FILE)
-
-    # run prediction
     print('Running {}...'.format(args.model))
     if not args.submission:
         scores = []
@@ -324,9 +327,9 @@ def train(args):
         print('Saving final score in data/scores_<timestamp>.pkl')
         npscore = np.array(scores)
         if len(args.param) > 1:
-            K_param = '()'
-        else:
             K_param = str(args.param)
+        else:
+            K_param = str(args.param[0])
         score_filename = 'data/scores_{}_{}_{:.3}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_param, args.L)
         pickle.dump(npscore, open(score_filename, 'wb'))
         if len(scores) > 1:
@@ -336,6 +339,7 @@ def train(args):
                 plt.ylabel('score')
             except:
                 print('Plotting not working.')
+        return scores
     else:
         training_data = raw_data
         assert len(args.param) == 1, "We want to export a submission! Hyperparameter can't be a list!"
@@ -343,7 +347,9 @@ def train(args):
         print_stats(predictions)
         filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.param, args.L)
         write_data(filename, predictions)
+        return predictions
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    main(sys.argv[1:])
