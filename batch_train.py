@@ -3,9 +3,9 @@ import multiprocessing
 import datetime
 import os
 import numpy as np
-import scipy
+import scipy.io
 import pickle
-improt time
+import time
 
 """
 from http://stackoverflow.com/questions/15414027/multiprocessing-pool-makes-numpy-matrix-multiplication-slower
@@ -14,8 +14,7 @@ from http://stackoverflow.com/questions/15414027/multiprocessing-pool-makes-nump
 params = '--model=SVD --cv_splits=14 --score_averaging=2 --param={} --L={:.5}'
 
 def worker_function(result_queue, worker_index, k, l):
-    """Work on a certain task of the grid search
-    """
+    # Work on a certain task of the grid search
     result_queue.put((worker_index, k, l, train.main(params.format(k,l).split())))
 
 
@@ -74,7 +73,7 @@ def main():
     
     print('Saving result in pickle file...')
     pickle.dump(result, open(filename+'.pkl', 'wb'))
-    print('Saving result in pickle file...')
+    print('Saving result in matlab file...')
     scipy.io.savemat(filename+'.mat', mdict={'k': result[0], 'l': result[1], 'scores': result[2]})
 
 
