@@ -23,6 +23,7 @@ SUBMISSION_FORMAT='r{{}}_c{{}},{{:.{}f}}\n'.format(ROUND)
 NB_USERS = 10000
 NB_ITEMS = 1000
 
+SGD_ITER = 60000000
 INJECT_TEST_DATA = False
 args = None
 
@@ -41,19 +42,23 @@ def main():
                         help='Data splits for cross validation')
     parser.add_argument('--score_averaging', type=int, default=1,
                         help='On how many of the splits should be tested?')
-    parser.add_argument('--quick', type=bool, default=True,
-                        help='Run a quick version. This should be good enough. If false, takes a loong time')
     parser.add_argument('--param', type=str, default="12",
                         help='Hyper parameter, can also be a list')
     parser.add_argument('--L', type=float, default=0.1,
                         help='Hyper parameter for SGD')
+    parser.add_argument('--lr_factor', type=float, default=1.0,
+                        help='Multiplier for the learning rate.')
     parser.add_argument('--postproc', type=bool, default=True,
                         help='Do post procession like range cropping')
     parser.add_argument('--v', type=int, default=2,
                         help='Verbosity of sgd: 0 for nothing, 1 for basic messages, 2 for steps')
+    parser.add_argument('--n_messages', type=int, default=20,
+                        help='The number of messages to print for the sgd. Only relevant when --v==2')
+
     args = parser.parse_args()
     args.param = eval(args.param)
     args.param = args.param if type(args.param) == list else [args.param]
+
     train(args)
 
 
@@ -193,13 +198,8 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
                   1 for inital messages
                   2 for steps
     """
-    quick = args.quick
-    if quick:
-        n_iter = 60000000
-    else:
-        n_iter = 140000000
     
-    print_every = n_iter / 20
+    print_every = SGD_ITER / args.n_messages
     U = np.random.rand(matrix.shape[0],K)
     V = np.random.rand(matrix.shape[1],K)
     
@@ -209,10 +209,11 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
         print("      SGD: sgd_prediction called. K = {}, L = {}".format(K, L))
         print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
     
-    lr = learning_rate(0,0)
+    lr = sgd_learning_rate(0,0)
     start_time = datetime.datetime.now()
-    for t in range(n_iter):
-        lr = learning_rate(t, lr, quick) #TODO : Don't calculate this every time
+    for t in range(SGD_ITER):
+        if t % 1000000 == 0:
+            lr = sgd_learning_rate(t, lr)
         d,n = random.choice(non_zero_indices)
             
         
@@ -233,46 +234,35 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
         if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
             test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
-            print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.5f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score, lr))
+            print("      SGD : step {:8d}  ({:2d} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.5f}".format(t+1, int(100 * (t+1) /SGD_ITER), score, test_score, lr))
         if t == 500000:
             t_after_100 = datetime.datetime.now() - start_time;
             if args.submission:
                 multi_runs = 1
             else:
                 multi_runs = len(args.param)*args.score_averaging
-            duration = t_after_100/500000*n_iter*multi_runs
+            duration = t_after_100/500000*SGD_ITER*multi_runs
             end = datetime.datetime.now() + duration
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
     return U.dot(V.T)
 
-def learning_rate(t, current, quick = True):
-    if quick:
-        if  (t < 30000000): 
-            return 0.02
-        elif(t < 40000000): 
-            return 0.01
-        elif(t < 45000000): 
-            return 0.002
-        elif(t < 50000000): 
-            return 0.0005
-        elif(t < 55000000):
-            return 0.0001
-        else:
-            return 0.00002
-    else:
-        if  (t < 40000000): 
-            return 0.05
-        elif(t < 60000000): 
-            return 0.01
-        elif(t < 80000000): 
-            return 0.002
-        elif(t <100000000): 
-            return 0.0005
-        elif(t <120000000):
-            return 0.0001
-        else:
-            return 0.00002
 
+def sgd_learning_rate(t, current):
+    result = 0
+    percent_done = t / SGD_ITER
+    if  (t < 2/6): 
+        result =  0.03
+    elif(t < 3/6): 
+        result =  0.01
+    elif(t < 4/6): 
+        result =  0.002
+    elif(t < 5/6): 
+        result =  0.0005
+    elif(t < 5.5/6):
+        result =  0.0001
+    else:
+        result =  0.00002
+    return result * args.lr_factor
     
 
 def post_process(predictions):
@@ -296,7 +286,7 @@ def run_model(training_data, test_data, param1):
 
 def validate(secret_data, approximation):
     """
-        local cross validation with a test set using the same equation as Kaggle
+        calculate the score for approximation when predicting secret_data, using the same formula as on kaggle
     """
     error_sum = np.where(secret_data!=0, np.square(approximation-secret_data),0).sum()
     return math.sqrt(error_sum / (secret_data!=0).sum())
