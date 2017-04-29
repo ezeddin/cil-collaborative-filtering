@@ -334,9 +334,9 @@ def train():
         print('Saving final score in data/scores_<timestamp>.pkl')
         npscore = np.array(scores)
         if len(args.param) > 1:
-            K_param = '()'
-        else:
             K_param = str(args.param)
+        else:
+            K_param = str(args.param[0])
         score_filename = 'data/scores_{}_{}_{:.3}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_param, args.L)
         pickle.dump(npscore, open(score_filename, 'wb'))
         if len(scores) > 1:
