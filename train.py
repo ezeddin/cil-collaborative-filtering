@@ -46,7 +46,7 @@ def main(arguments, matrix=None):
                         help='Hyper parameter, can also be a list')
     parser.add_argument('--L', type=float, default=0.1,
                         help='Hyper parameter for SGD')
-    parser.add_argument('--lr_factor', type=float, default=1.0,
+    parser.add_argument('--lr_factor', type=float, default=3.0,
                         help='Multiplier for the learning rate.')
     parser.add_argument('--postproc', type=bool, default=True,
                         help='Do post procession like range cropping')

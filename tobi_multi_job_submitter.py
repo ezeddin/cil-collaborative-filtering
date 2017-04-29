@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 K = list(range(20, 41, 5))
-lr_factors = [0.1, 0.2, 0.5 , 0.8 , 1.0, 1.2, 1.5, 2]
+lr_factors = [0.8 , 1, 1.5, 2, 2.5, 3, 3.5]
 
 submission = 'bsub -n 1 -W 00:30 -R "rusage[mem=700]" "python3 train.py --cv_splits=8 --param={} --L=0.084 --lr_factor={} "'
 
