@@ -29,7 +29,7 @@ args = None
 
 old_settings = np.seterr(all='raise')
 
-def main():
+def main(arguments):
     global args
     parser = argparse.ArgumentParser(
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -51,10 +51,10 @@ def main():
                         help='Do post procession like range cropping')
     parser.add_argument('--v', type=int, default=2,
                         help='Verbosity of sgd: 0 for nothing, 1 for basic messages, 2 for steps')
-    args = parser.parse_args()
+    args = parser.parse_args(arguments)
     args.param = eval(args.param)
     args.param = args.param if type(args.param) == list else [args.param]
-    train(args)
+    return train()
 
 
 def load_data(filename):
@@ -302,7 +302,7 @@ def validate(secret_data, approximation):
     return math.sqrt(error_sum / (secret_data!=0).sum())
 
 
-def train(args):
+def train():
     """
         Main routine that loads data and trains the model. At the end, it either
         exports a submission file or it exports the scores from the local cross
@@ -346,6 +346,7 @@ def train(args):
                 plt.ylabel('score')
             except:
                 print('Plotting not working.')
+        return scores
     else:
         training_data = raw_data
         assert len(args.param) == 1, "We want to export a submission! Hyperparameter can't be a list!"
@@ -353,7 +354,9 @@ def train(args):
         print_stats(predictions)
         filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.param, args.L)
         write_data(filename, predictions)
+        return predictions
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    main(sys.argv[1:])
