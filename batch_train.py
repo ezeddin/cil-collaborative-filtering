@@ -24,7 +24,7 @@ def worker_function(result_queue, worker_index, k, l):
 def work(K_chunk):
     # after importing numpy, reset the CPU affinity of the parent process so
     # that it will use all cores
-    os.system("taskset -p 0xff %d" % os.getpid())
+    #os.system("taskset -p 0xff %d" % os.getpid())
     result_queue = multiprocessing.Queue()
     
     # Prepare child processes.
@@ -33,9 +33,9 @@ def work(K_chunk):
     # start processes for every L value in two different K values
     for k in K_chunk:
         if k < 30:
-            L=np.linspace(0.03,0.11,2)+0.006/30*k
+            L=np.linspace(0.03,0.11,15)+0.006/30*k
         else:
-            L=np.linspace(0.03,0.11,2)+0.006 
+            L=np.linspace(0.03,0.11,15)+0.006 
         for l in L:
             children.append(
                 multiprocessing.Process(
