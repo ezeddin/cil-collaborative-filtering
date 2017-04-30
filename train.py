@@ -23,6 +23,7 @@ SUBMISSION_FORMAT='r{{}}_c{{}},{{:.{}f}}\n'.format(ROUND)
 NB_USERS = 10000
 NB_ITEMS = 1000
 
+SGD_ITER = 60000000
 INJECT_TEST_DATA = False
 args = None
 
@@ -36,21 +37,26 @@ def main(arguments, matrix=None):
     parser.add_argument('--submission', type=bool, default=False,
                         help='Omit local validation, just export submission file.')
     parser.add_argument('--model', type=str, default='SGD',
-                        help='Prediction algorithm: average, SVD, SVD2, SGD')
+                        help='Prediction algorithm: average, SVD, SVD2, SGD, SGD+')
     parser.add_argument('--cv_splits', type=int, default=8,
                         help='Data splits for cross validation')
     parser.add_argument('--score_averaging', type=int, default=1,
                         help='On how many of the splits should be tested?')
-    parser.add_argument('--quick', type=bool, default=True,
-                        help='Run a quick version. This should be good enough. If false, takes a loong time')
     parser.add_argument('--param', type=str, default="12",
                         help='Hyper parameter, can also be a list')
     parser.add_argument('--L', type=float, default=0.1,
                         help='Hyper parameter for SGD')
+    parser.add_argument('--L2', type=float, default=0.2,
+                        help='Bias regularizer in SGD+')
+    parser.add_argument('--lr_factor', type=float, default=3.0,
+                        help='Multiplier for the learning rate.')
     parser.add_argument('--postproc', type=bool, default=True,
                         help='Do post procession like range cropping')
     parser.add_argument('--v', type=int, default=2,
                         help='Verbosity of sgd: 0 for nothing, 1 for basic messages, 2 for steps')
+    parser.add_argument('--n_messages', type=int, default=20,
+                        help='The number of messages to print for the sgd. Only relevant when --v==2')
+
     parser.add_argument('--external_matrix', type=bool, default=False,
                         help='In a multiprocessing environment: get matrices from external arguments')
     args = parser.parse_args(arguments)
@@ -192,7 +198,7 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
+def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -200,87 +206,100 @@ def sgd_prediction(matrix, test_data, K, verbose, L=0.1):
                   1 for inital messages
                   2 for steps
     """
-    quick = args.quick
-    if quick:
-        n_iter = 60000000
-    else:
-        n_iter = 140000000
     
-    print_every = n_iter / 20
+    print_every = SGD_ITER / args.n_messages
     U = np.random.rand(matrix.shape[0],K)
     V = np.random.rand(matrix.shape[1],K)
-    
-    
+
+    if use_bias:
+        biasU = np.zeros(matrix.shape[0])
+        biasV = np.zeros(matrix.shape[1])
+
     non_zero_indices = list(zip(*np.nonzero(matrix)))
-    if verbose > 0 :
-        print("      SGD: sgd_prediction called. K = {}, L = {}".format(K, L))
-        print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
+    global_mean = matrix.sum() / len(non_zero_indices)
+
     
-    lr = learning_rate(0,0)
+    if verbose > 0 :
+        print("      SGD: sgd_prediction called. biases={}, K = {}, L = {}, L2= {}, lrf= {}".format(use_bias, K, L, L2, args.lr_factor))
+        print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
+        print("      SGD: global mean is {}".format(global_mean))
+    lr = sgd_learning_rate(0,0)
     start_time = datetime.datetime.now()
-    for t in range(n_iter):
-        lr = learning_rate(t, lr, quick) #TODO : Don't calculate this every time
+    for t in range(SGD_ITER):
+        if t % 1000000 == 0:
+            lr = sgd_learning_rate(t, lr)
         d,n = random.choice(non_zero_indices)
             
         
         #TODO : if convergence is slow, we could use a bigger batch size (update more indexes at once)
         U_d = U[d,:]
         V_n = V[n,:]
-        delta = matrix[d,n] - U_d.dot(V_n)
+
+        guess = U_d.dot(V_n)
+        if use_bias:
+            biasU_d = biasU[d]
+            biasV_n = biasV[n]
+            guess += biasU_d + biasV_n
+        
+        delta = matrix[d,n] - guess 
 
         try:
             new_U_d = U_d + lr * (delta * V_n - L*U_d)
             new_V_n = V_n + lr * (delta * U_d - L*V_n)
+
+            if use_bias:
+                new_biasU_d = biasU_d + lr * ( delta - L2*(biasU_d + biasV_n - global_mean))
+                new_biasV_n = biasV_n + lr * ( delta - L2*(biasV_n + biasU_d - global_mean))
+
         except FloatingPointError:
             print ("WARNING: FLOATING POINT ERROR CAUGHT!")
         else:
             U[d,:] = new_U_d
             V[n,:] = new_V_n
-        
+            if use_bias : 
+                biasU[d] = new_biasU_d
+                biasV[n] = new_biasV_n
         if verbose == 2 and t % print_every == 0:
-            score = validate(matrix, U.dot(V.T))
-            test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
-            print("      SGD : step {}  ({} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.5f}".format(t+1, int(100 * (t+1) /n_iter), score, test_score, lr))
+            if use_bias:
+                score = validate(matrix, U.dot(V.T) + biasU.reshape(-1,1) + biasV)
+                test_score = validate(test_data, U.dot(V.T) + biasU.reshape(-1,1) + biasV) if test_data is not None else -1
+            else:
+                score = validate(matrix, U.dot(V.T))
+                test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
+
+            print("      SGD : step {:8d}  ({:2d} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.5f}".format(t+1, int(100 * (t+1) /SGD_ITER), score, test_score, lr))
         if t == 500000:
             t_after_100 = datetime.datetime.now() - start_time;
             if args.submission:
                 multi_runs = 1
             else:
                 multi_runs = len(args.param)*args.score_averaging
-            duration = t_after_100/500000*n_iter*multi_runs
+            duration = t_after_100/500000*SGD_ITER*multi_runs
             end = datetime.datetime.now() + duration
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
-    return U.dot(V.T)
-
-
-def learning_rate(t, current, quick = True):
-    if quick:
-        if  (t < 30000000): 
-            return 0.02
-        elif(t < 40000000): 
-            return 0.01
-        elif(t < 45000000): 
-            return 0.002
-        elif(t < 50000000): 
-            return 0.0005
-        elif(t < 55000000):
-            return 0.0001
-        else:
-            return 0.00002
+    if use_bias:
+        return U.dot(V.T) + biasU.reshape(-1,1) + biasV
     else:
-        if  (t < 40000000): 
-            return 0.05
-        elif(t < 60000000): 
-            return 0.01
-        elif(t < 80000000): 
-            return 0.002
-        elif(t <100000000): 
-            return 0.0005
-        elif(t <120000000):
-            return 0.0001
-        else:
-            return 0.00002
-    
+        return U.dot(V.T)
+
+
+def sgd_learning_rate(t, current):
+    result = 0
+    done = t / SGD_ITER
+    if   done < 2/6: 
+        result =  0.03
+    elif done < 3/6: 
+        result =  0.01
+    elif done < 4/6: 
+        result =  0.002
+    elif done < 5/6: 
+        result =  0.0005
+    elif done < 5.5/6:
+        result =  0.0001
+    else:
+        result =  0.00002
+    return result * args.lr_factor
+
 
 def post_process(predictions):
     predictions[predictions > 5.0] = 5.0
@@ -295,7 +314,9 @@ def run_model(training_data, test_data, param1):
     elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v, L=args.L)
+        predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v, L=args.L, L2=args.L2, use_bias=False)
+    elif args.model == 'SGD+':
+        predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v, L=args.L, L2=args.L2)
     if args.postproc:
         post_process(predictions)
     return predictions
@@ -303,7 +324,7 @@ def run_model(training_data, test_data, param1):
 
 def validate(secret_data, approximation):
     """
-        local cross validation with a test set using the same equation as Kaggle
+        calculate the score for approximation when predicting secret_data, using the same formula as on kaggle
     """
     error_sum = np.where(secret_data!=0, np.square(approximation-secret_data),0).sum()
     return math.sqrt(error_sum / (secret_data!=0).sum())
