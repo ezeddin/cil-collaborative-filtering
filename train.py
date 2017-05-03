@@ -56,7 +56,8 @@ def main(arguments, matrix=None):
                         help='Verbosity of sgd: 0 for nothing, 1 for basic messages, 2 for steps')
     parser.add_argument('--n_messages', type=int, default=20,
                         help='The number of messages to print for the sgd. Only relevant when --v==2')
-
+    parser.add_argument('--subtract_mean', type=bool, default=False,
+                        help='Subtracts the mean of the data matrix in preprocessing')
     parser.add_argument('--external_matrix', type=bool, default=False,
                         help='In a multiprocessing environment: get matrices from external arguments')
     args = parser.parse_args(arguments)
@@ -218,6 +219,12 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
     non_zero_indices = list(zip(*np.nonzero(matrix)))
     global_mean = matrix.sum() / len(non_zero_indices)
 
+    if args.subtract_mean != False:
+        optional_zero_mean = global_mean
+    else:
+        optional_zero_mean = 0.0
+        
+
     
     if verbose > 0 :
         print("      SGD: sgd_prediction called. biases={}, K = {}, L = {}, L2= {}, lrf= {}".format(use_bias, K, L, L2, args.lr_factor))
@@ -241,15 +248,15 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
             biasV_n = biasV[n]
             guess += biasU_d + biasV_n
         
-        delta = matrix[d,n] - guess 
+        delta = matrix[d,n] - guess - optional_zero_mean
 
         try:
             new_U_d = U_d + lr * (delta * V_n - L*U_d)
             new_V_n = V_n + lr * (delta * U_d - L*V_n)
 
             if use_bias:
-                new_biasU_d = biasU_d + lr * ( delta - L2*(biasU_d + biasV_n - global_mean))
-                new_biasV_n = biasV_n + lr * ( delta - L2*(biasV_n + biasU_d - global_mean))
+                new_biasU_d = biasU_d + lr * ( delta - L2*(biasU_d + biasV_n - global_mean + optional_zero_mean))
+                new_biasV_n = biasV_n + lr * ( delta - L2*(biasV_n + biasU_d - global_mean + optional_zero_mean))
 
         except FloatingPointError:
             print ("WARNING: FLOATING POINT ERROR CAUGHT!")
@@ -261,11 +268,11 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
                 biasV[n] = new_biasV_n
         if verbose == 2 and t % print_every == 0:
             if use_bias:
-                score = validate(matrix, U.dot(V.T) + biasU.reshape(-1,1) + biasV)
-                test_score = validate(test_data, U.dot(V.T) + biasU.reshape(-1,1) + biasV) if test_data is not None else -1
+                score = validate(matrix, U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean)
+                test_score = validate(test_data, U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean) if test_data is not None else -1
             else:
-                score = validate(matrix, U.dot(V.T))
-                test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
+                score = validate(matrix, U.dot(V.T) + optional_zero_mean)
+                test_score = validate(test_data, U.dot(V.T) + optional_zero_mean) if test_data is not None else -1
 
             print("      SGD : step {:8d}  ({:2d} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.5f}".format(t+1, int(100 * (t+1) /SGD_ITER), score, test_score, lr))
         if t == 500000:
@@ -278,9 +285,9 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
             end = datetime.datetime.now() + duration
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
     if use_bias:
-        return U.dot(V.T) + biasU.reshape(-1,1) + biasV
+        return U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean
     else:
-        return U.dot(V.T)
+        return U.dot(V.T) + optional_zero_mean
 
 
 def sgd_learning_rate(t, current):
@@ -307,6 +314,13 @@ def post_process(predictions):
 
 
 def run_model(training_data, test_data, param1):
+    # problem with this variant: there are no more zero-entries in the matrix -> line 219 is useless..
+    #if args.subtract_mean != False:
+    #    bias = training_data.mean()
+    #    non_zero_indices = list(zip(*np.nonzero(training_data)))
+    #else:
+    #    bias = 0.0
+    #    non_zero_indices = None
     if args.model == 'average':
         predictions = averaging_fill_up(training_data)
     elif args.model == 'SVD':
@@ -349,7 +363,7 @@ def train(raw_data):
                     continue
                 training_data, test_data = build_train_and_test(raw_data, splits, i)
                 print('    running model when leaving out split {}'.format(i))
-                avg_scores.append(validate(test_data, run_model(training_data,test_data,  param)))
+                avg_scores.append(validate(test_data, run_model(training_data, test_data, param)))
                 print('    got score : {}'.format(avg_scores[-1]))
 
             scores.append([param, np.average(avg_scores)])
@@ -372,7 +386,6 @@ def train(raw_data):
                 print('Plotting not working.')
         return scores
     else:
-        training_data = raw_data
         assert len(args.param) == 1, "We want to export a submission! Hyperparameter can't be a list!"
         predictions = run_model(raw_data, None, args.param[0])
         print_stats(predictions)
