@@ -64,12 +64,12 @@ def main(arguments, matrix=None):
     args.param = eval(args.param)
     args.param = args.param if type(args.param) == list else [args.param]
 
-    if not args.external_matrix:
-        # load data from file
-        return train(load_data(DATA_FILE))
-    else:
+    if args.external_matrix:
         # data is given in argument to main()
         return train(matrix)
+    else:
+        # load data from file
+        return train(load_data(DATA_FILE))
 
 def load_data(filename):
     print("Loading data...")
@@ -207,23 +207,22 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
                   1 for inital messages
                   2 for steps
     """
+    non_zero_indices = list(zip(*np.nonzero(matrix)))
+    global_mean = matrix.sum() / len(non_zero_indices)
     
     print_every = SGD_ITER / args.n_messages
-    U = np.random.rand(matrix.shape[0],K)
-    V = np.random.rand(matrix.shape[1],K)
-
+    
     if use_bias:
         biasU = np.zeros(matrix.shape[0])
         biasV = np.zeros(matrix.shape[1])
 
-    non_zero_indices = list(zip(*np.nonzero(matrix)))
-    global_mean = matrix.sum() / len(non_zero_indices)
-
-    if args.subtract_mean != False:
+    if args.subtract_mean:
         optional_zero_mean = global_mean
     else:
         optional_zero_mean = 0.0
         
+    U = np.ones((matrix.shape[0],K)) * np.sqrt(optional_zero_mean/K)
+    V = np.ones((matrix.shape[1],K)) * np.sqrt(optional_zero_mean/K)
 
     
     if verbose > 0 :
@@ -249,6 +248,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
             guess += biasU_d + biasV_n
         
         delta = matrix[d,n] - guess - optional_zero_mean
+        #delta = np.clip(delta, -1e5, 1e5)
 
         try:
             new_U_d = U_d + lr * (delta * V_n - L*U_d)
@@ -315,7 +315,7 @@ def post_process(predictions):
 
 def run_model(training_data, test_data, param1):
     # problem with this variant: there are no more zero-entries in the matrix -> line 219 is useless..
-    #if args.subtract_mean != False:
+    #if args.subtract_mean:
     #    bias = training_data.mean()
     #    non_zero_indices = list(zip(*np.nonzero(training_data)))
     #else:
