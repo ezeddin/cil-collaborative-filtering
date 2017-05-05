@@ -50,7 +50,7 @@ def main(arguments, matrix=None):
                         help='Hyper parameter for SGD')
     parser.add_argument('--L2', type=float, default=0.2,
                         help='Bias regularizer in SGD+')
-    parser.add_argument('--lr_factor', type=float, default=3.0,
+    parser.add_argument('--lr_factor', type=float, default=1.0,
                         help='Multiplier for the learning rate.')
     parser.add_argument('--postproc', type=bool, default=True,
                         help='Do post procession like range cropping')
