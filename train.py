@@ -27,6 +27,8 @@ SGD_ITER = 60000000
 INJECT_TEST_DATA = False
 args = None
 
+np.random.seed(0)
+random.seed(0)
 
 old_settings = np.seterr(all='raise')
 
@@ -38,8 +40,8 @@ def main(arguments, matrix=None):
                         help='Omit local validation, just export submission file.')
     parser.add_argument('--model', type=str, default='SGD',
                         help='Prediction algorithm: average, SVD, SVD2, SGD, SGD+')
-    parser.add_argument('--cv_splits', type=int, default=8,
-                        help='Data splits for cross validation')
+    parser.add_argument('--cv_splits', type=int, default=14,
+                        help='Number of data splits for cross validation')
     parser.add_argument('--score_averaging', type=int, default=1,
                         help='On how many of the splits should be tested?')
     parser.add_argument('--param', type=str, default="12",
@@ -48,7 +50,7 @@ def main(arguments, matrix=None):
                         help='Hyper parameter for SGD')
     parser.add_argument('--L2', type=float, default=0.2,
                         help='Bias regularizer in SGD+')
-    parser.add_argument('--lr_factor', type=float, default=3.0,
+    parser.add_argument('--lr_factor', type=float, default=1.0,
                         help='Multiplier for the learning rate.')
     parser.add_argument('--postproc', type=bool, default=True,
                         help='Do post procession like range cropping')
@@ -221,9 +223,12 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
     else:
         optional_zero_mean = 0.0
         
-    U = np.ones((matrix.shape[0],K)) * np.sqrt((global_mean-optional_zero_mean)/K)
-    V = np.ones((matrix.shape[1],K)) * np.sqrt((global_mean-optional_zero_mean)/K)
 
+    bound = 1/np.sqrt(K)
+    U = np.random.uniform(0, bound,(matrix.shape[0],K))
+    V = np.random.uniform(0, bound,(matrix.shape[1],K))
+
+    
     
     if verbose > 0 :
         print("      SGD: sgd_prediction called. biases={}, K = {}, L = {}, L2= {}, lrf= {}".format(use_bias, K, L, L2, args.lr_factor))
