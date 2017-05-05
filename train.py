@@ -27,6 +27,8 @@ SGD_ITER = 60000000
 INJECT_TEST_DATA = False
 args = None
 
+np.random.seed(0)
+random.seed(0)
 
 old_settings = np.seterr(all='raise')
 
@@ -221,9 +223,12 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
     else:
         optional_zero_mean = 0.0
         
-    U = np.ones((matrix.shape[0],K)) * np.sqrt((global_mean-optional_zero_mean)/K)
-    V = np.ones((matrix.shape[1],K)) * np.sqrt((global_mean-optional_zero_mean)/K)
 
+    bound = 1/np.sqrt(K)
+    U = np.random.uniform(-bound, bound,(matrix.shape[0],K)) + np.random.uniform(0, bound,(matrix.shape[0],K))
+    V = np.random.uniform(-bound, bound,(matrix.shape[1],K)) + np.random.uniform(0, bound,(matrix.shape[1],K))
+
+    
     
     if verbose > 0 :
         print("      SGD: sgd_prediction called. biases={}, K = {}, L = {}, L2= {}, lrf= {}".format(use_bias, K, L, L2, args.lr_factor))
