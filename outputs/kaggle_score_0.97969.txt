@@ -1,0 +1,34 @@
+tobia@DESKTOP-VD5CG69 C:\Users\tobia\OneDrive\Documents\ETH\CIL\projects\cil-collaborative-filtering
+> python train.py --model=SGD+ --param=12 --L=0.08 --L2=0.04 --submission=True
+Loading data...
+Dataset has 1176952 non zero values
+average rating : 3.8572805008190647
+Running SGD+...
+      SGD: sgd_prediction called. biases=True, K = 12, L = 0.08, L2= 0.04, lrf= 3.0
+      SGD: There are 1176952 nonzero indices in total.
+      SGD: global mean is 3.8572805008190647
+      SGD : step        1  ( 0 % done!). fit = 3.7797, test_fit=-1.0000, lr=0.09000
+    Expected duration: 0:21:00, ending at time 2017-05-05 17:47:32
+      SGD : step  3000001  ( 5 % done!). fit = 1.0138, test_fit=-1.0000, lr=0.09000
+      SGD : step  6000001  (10 % done!). fit = 1.0008, test_fit=-1.0000, lr=0.09000
+      SGD : step  9000001  (15 % done!). fit = 0.9985, test_fit=-1.0000, lr=0.09000
+      SGD : step 12000001  (20 % done!). fit = 0.9974, test_fit=-1.0000, lr=0.09000
+      SGD : step 15000001  (25 % done!). fit = 0.9957, test_fit=-1.0000, lr=0.09000
+      SGD : step 18000001  (30 % done!). fit = 0.9970, test_fit=-1.0000, lr=0.09000
+      SGD : step 21000001  (35 % done!). fit = 0.9549, test_fit=-1.0000, lr=0.03000
+      SGD : step 24000001  (40 % done!). fit = 0.9462, test_fit=-1.0000, lr=0.03000
+      SGD : step 27000001  (45 % done!). fit = 0.9454, test_fit=-1.0000, lr=0.03000
+      SGD : step 30000001  (50 % done!). fit = 0.9445, test_fit=-1.0000, lr=0.00600
+      SGD : step 33000001  (55 % done!). fit = 0.9304, test_fit=-1.0000, lr=0.00600
+      SGD : step 36000001  (60 % done!). fit = 0.9289, test_fit=-1.0000, lr=0.00600
+      SGD : step 39000001  (65 % done!). fit = 0.9278, test_fit=-1.0000, lr=0.00600
+      SGD : step 42000001  (70 % done!). fit = 0.9259, test_fit=-1.0000, lr=0.00150
+      SGD : step 45000001  (75 % done!). fit = 0.9254, test_fit=-1.0000, lr=0.00150
+      SGD : step 48000001  (80 % done!). fit = 0.9251, test_fit=-1.0000, lr=0.00150
+      SGD : step 51000001  (85 % done!). fit = 0.9247, test_fit=-1.0000, lr=0.00030
+      SGD : step 54000001  (90 % done!). fit = 0.9245, test_fit=-1.0000, lr=0.00030
+      SGD : step 57000001  (95 % done!). fit = 0.9244, test_fit=-1.0000, lr=0.00006
+The matrix has the following values:
+  > Values range from 1.0 to 5.0
+  > Average value is 3.5279621590512753
+Writing to file...
