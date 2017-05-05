@@ -225,8 +225,8 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
         
 
     bound = 1/np.sqrt(K)
-    U = np.random.uniform(-bound, bound,(matrix.shape[0],K)) + np.random.uniform(0, bound,(matrix.shape[0],K))
-    V = np.random.uniform(-bound, bound,(matrix.shape[1],K)) + np.random.uniform(0, bound,(matrix.shape[1],K))
+    U = np.random.uniform(0, bound,(matrix.shape[0],K))
+    V = np.random.uniform(0, bound,(matrix.shape[1],K))
 
     
     
