@@ -40,8 +40,8 @@ def main(arguments, matrix=None):
                         help='Omit local validation, just export submission file.')
     parser.add_argument('--model', type=str, default='SGD',
                         help='Prediction algorithm: average, SVD, SVD2, SGD, SGD+')
-    parser.add_argument('--cv_splits', type=int, default=8,
-                        help='Data splits for cross validation')
+    parser.add_argument('--cv_splits', type=int, default=14,
+                        help='Number of data splits for cross validation')
     parser.add_argument('--score_averaging', type=int, default=1,
                         help='On how many of the splits should be tested?')
     parser.add_argument('--param', type=str, default="12",
