@@ -7,46 +7,49 @@ import scipy.io
 import pickle
 import time
 import sys
+import argparse
+
 
 """
 from http://stackoverflow.com/questions/15414027/multiprocessing-pool-makes-numpy-matrix-multiplication-slower
 """
 
-params = '--model=SGD --cv_splits=14 --score_averaging=3 --external_matrix=True --param={} --L={:.5}'
+params = '--model=SGD+ --cv_splits=14 --score_averaging=3 --external_matrix=True --param={} --L={:.5} --L2={:.5} --subtract_mean=False'
 
 raw_data = None
 
-def worker_function(result_queue, worker_index, k, l):
+def logspace(start, stop, n):
+    return np.logspace(np.log10(start), np.log10(stop), n)
+
+def worker_function(result_queue, worker_index, k, l, l2):
     # Work on a certain task of the grid search
-    result_queue.put((worker_index, k, l, train.main(params.format(k,l).split(), raw_data)))
+    print('Executing train.py ' + params.format(k,l,l2))
+    result_queue.put((worker_index, k, l, l2, train.main(params.format(k,l,l2).split(), raw_data)))
 
 
-def work(K_chunk):
+def work(K, L, L2, dry_run):
     # after importing numpy, reset the CPU affinity of the parent process so
     # that it will use all cores
     #os.system("taskset -p 0xff %d" % os.getpid())
     result_queue = multiprocessing.Queue()
-    
+
     # Prepare child processes.
     children = []
     i = 0
     # start processes for every L value in two different K values
-    for k in K_chunk:
-        if k < 30:
-            L=np.linspace(0.03,0.11,15)+0.006/30*k
-        else:
-            L=np.linspace(0.03,0.11,15)+0.006 
+    for k in K:
         for l in L:
-            children.append(
-                multiprocessing.Process(
-                    target=worker_function,
-                    args=(result_queue, i, k, l)
-                    )
-                )
-            i += 1
+            for l2 in L2:
+                print('Starting process: {}'.format(params.format(k,l,l2)))
+                if not dry_run:
+                    children.append(multiprocessing.Process(target=worker_function,args=(result_queue, i, k, l, l2)))
+                i += 1
+
+    if dry_run:
+        return
 
     # Run child processes.
-    print('Starting processes...')
+    print('Starting {} processes...'.format(len(K)*len(L)*len(L2)))
     for c in children:
         # also kill child processes if parent is killed
         c.daemon=True
@@ -65,19 +68,41 @@ def work(K_chunk):
     # Join child processes (clean up zombies).
     for c in children:
         c.join()
-    return (K, L, Scores)
+    return (K, L, L2, Scores)
 
 
-def main(argv):
+def main():
     global raw_data
+
+    parser = argparse.ArgumentParser(
+                        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--K', type=str, default='32',
+                        help='Provide list of K parameters, write as python expression.')
+    parser.add_argument('--L', type=str, default='0.1',
+                        help='Provide list of L parameters, write as python expression.')
+    parser.add_argument('--L2', type=str, default='0.2',
+                        help='Provide list of L2 parameters, write as python expression.')
+    parser.add_argument('--dry_run', type=bool, default=False,
+                        help='Only print the commands executed.')
+    args = parser.parse_args()
+
     print('Loading dataset once:')
     raw_data = train.load_data(train.DATA_FILE)
 
+    try:
+        args.K = eval(args.K) if type(eval(args.K)) == list else [eval(args.K)]
+        args.L = eval(args.L) if type(eval(args.L)) == list else [eval(args.L2)]
+        args.L2 = eval(args.L2) if type(eval(args.L2)) == list else [eval(args.L2)]
+    except Exception as e:
+        print('Couldn''t convert arguments to python expression')
+        raise e
+
+    if len(args.K)*len(args.L)*len(args.L2) > 48:
+        print('Warning: requires more than 48 processes!')
+
     t0 = datetime.datetime.now()
-    Ks = eval(argv[0])
-    assert type(Ks) == list, 'Please provide a python list as argument!'
-    print('Starting workers for K={}'.format(Ks))
-    result = work(Ks)
+    print('Starting workers for K={}, L={}, L2={}'.format(args.K, args.L, args.L2))
+    result = work(args.K, args.L, args.L2, args.dry_run)
     duration = datetime.datetime.now() - t0
     print('Finished. Duration: {}'.format(str(duration).split('.')[0]))
     filename = 'data/grid_search_{}'.format(time.strftime('%c').replace(':','-')[4:-5])
@@ -85,8 +110,8 @@ def main(argv):
     print('Saving result in pickle file...')
     pickle.dump(result, open(filename+'.pkl', 'wb'))
     print('Saving result in matlab file...')
-    scipy.io.savemat(filename+'.mat', mdict={'k': result[0], 'l': result[1], 'scores': result[2]})
+    scipy.io.savemat(filename+'.mat', mdict={'k': result[0], 'l': result[1], 'l2': result[2], 'scores': result[3]})
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()
