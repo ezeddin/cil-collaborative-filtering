@@ -57,13 +57,15 @@ def work(K, L, L2, dry_run):
     # Wait for all results to arrive and gather in a sparse manner: (k,l,score(k,l))
     K = []
     L = []
+    L2 = []
     Scores = []
     print('Waiting for processes to return...')
     for _ in range(i):
-        ind, k, l, result = result_queue.get(block=True)
+        ind, k, l, l2, result = result_queue.get(block=True)
         print('Process #{:03} with datapoint ({:2}, {:.4}) returned {}'.format(ind, k, l, result[0][0]))
         K.append(k)
         L.append(l)
+        L2.append(l2)
         Scores.append(result[0][1])
     # Join child processes (clean up zombies).
     for c in children:
