@@ -221,8 +221,8 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
     else:
         optional_zero_mean = 0.0
         
-    U = np.ones((matrix.shape[0],K)) * np.sqrt(optional_zero_mean/K)
-    V = np.ones((matrix.shape[1],K)) * np.sqrt(optional_zero_mean/K)
+    U = np.ones((matrix.shape[0],K)) * np.sqrt((global_mean-optional_zero_mean)/K)
+    V = np.ones((matrix.shape[1],K)) * np.sqrt((global_mean-optional_zero_mean)/K)
 
     
     if verbose > 0 :
