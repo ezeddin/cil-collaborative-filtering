@@ -14,12 +14,9 @@ import argparse
 from http://stackoverflow.com/questions/15414027/multiprocessing-pool-makes-numpy-matrix-multiplication-slower
 """
 
-params = '--model=SGD+ --cv_splits=14 --score_averaging=3 --external_matrix=True --param={} --L={:.5} --L2={:.5} --subtract_mean=False'
+params = '--model=SGD+ --cv_splits=14 --score_averaging=3 --external_matrix=True --param={} --L={:.4} --L2={:.4} --subtract_mean=False'
 
 raw_data = None
-
-def logspace(start, stop, n):
-    return np.logspace(np.log10(start), np.log10(stop), n)
 
 def worker_function(result_queue, worker_index, k, l, l2):
     # Work on a certain task of the grid search
@@ -96,7 +93,7 @@ def main():
         args.L = eval(args.L) if type(eval(args.L)) == list else [eval(args.L2)]
         args.L2 = eval(args.L2) if type(eval(args.L2)) == list else [eval(args.L2)]
     except Exception as e:
-        print('Couldn''t convert arguments to python expression')
+        print('Couldn\'t convert arguments to python expression')
         raise e
 
     if len(args.K)*len(args.L)*len(args.L2) > 48:
