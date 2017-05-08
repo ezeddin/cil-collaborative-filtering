@@ -13,9 +13,9 @@ def floatListToStr(l):
 		return str(l)
 
 # those batches have to be lists of lists.
-K_batch = [26,32,146,195]
-L_batch = [0.1,0.5]
-L2_batch = list(np.linspace(0.01,0.1,10))+list(logspace(0.11,1,14))
+K_batch = [32,146,195]
+L_batch = [0.08,0.09,0.10]
+L2_batch = list(np.linspace(0.005,0.1,16))
 submission = 'bsub -n {} -B -N -W 04:00 -R "rusage[mem=600]" "module load python/3.3.3; python3 batch_train.py --K=\'{}\' --L=\'{}\' --L2=\'{}\'"'
 
 if input('Delete all previous score files? (y/n) ') == 'y':
@@ -25,10 +25,6 @@ print('Starting submitting jobs:')
 i = 0
 for k in K_batch:
     submission_formatted = submission.format(len(L_batch)*len(L2_batch), floatListToStr(k), floatListToStr(L_batch), floatListToStr(L2_batch))
-    print('Submitting job #{:02}: {}'.format(i, submission_formatted))
-    os.system(submission_formatted)
-    i += 1
-    submission_formatted = submission.format(len(L_batch)*len(L2_batch), floatListToStr(k), floatListToStr(L2_batch), floatListToStr(L_batch))
     print('Submitting job #{:02}: {}'.format(i, submission_formatted))
     os.system(submission_formatted)
     i += 1
