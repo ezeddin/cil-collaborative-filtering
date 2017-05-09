@@ -75,11 +75,11 @@ def main():
 
     parser = argparse.ArgumentParser(
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--K', type=str, default='32',
+    parser.add_argument('--K', type=str, default='12',
                         help='Provide list of K parameters, write as python expression.')
-    parser.add_argument('--L', type=str, default='0.1',
+    parser.add_argument('--L', type=str, default='[0.05,0.1]',
                         help='Provide list of L parameters, write as python expression.')
-    parser.add_argument('--L2', type=str, default='0.2',
+    parser.add_argument('--L2', type=str, default='[0.02,0.04]',
                         help='Provide list of L2 parameters, write as python expression.')
     parser.add_argument('--dry_run', type=bool, default=False,
                         help='Only print the commands executed.')
