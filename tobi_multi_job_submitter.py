@@ -1,29 +1,37 @@
 import os
 import numpy as np
 
+def logspace(start, stop, n):
+    return np.logspace(np.log10(start), np.log10(stop), n)
 
+def floatListToStr(l):
+	if type(l) == list:
+		return '[' + ','.join(['{:.4f}'.format(x) for x in l]) + ']'
+	elif type(l) == float:
+		return '{.4}'.format(l)
+	else:
+		return str(l)
 
+# those batches have to be lists of lists.
+K_batch = [3, 5,8,10,12,15,20]
+L_batch = list(np.linspace(0.01,0.15,15))
+L2_batch = list(np.linspace(0.01,0.15,15))
+os.system('module load python/3.3.3')
 
-K = [12]
-Ls=   [0.04, 0.06,0.08,0.1, 0.12, 0.15 ]
-L2s = [0.04, 0.06,0.08,0.1, 0.12, 0.15, 0.18, 0.20]
-
-
-MODEL = "SGD+"
-CV_SPLITS = 14
-AVERAGE_OVER = 3
-
-submission = 'bsub -n 1 -W 2:00 -R "rusage[mem=700]" "python3 train.py --model={} --cv_splits={} --score_averaging={} --param={} --L={} --L2={}  "'
+submission = 'bsub -n {} -B -N -W 04:00 -R "rusage[mem=600]" "python3 batch_train.py --K=\'{}\' --L=\'{}\' --L2=\'{}\' --dry_run=\'{}\'"'
 
 if input('Delete all previous score files? (y/n) ') == 'y':
     os.system('rm data/scores_*')
 
+if input('Dry run? (y/n)') == 'y':
+	dry = "True"
+else
+	dry = "False"
+
 print('Starting submitting jobs:')
 i = 0
-for k in K:
-    for l in Ls:
-	    for l2 in L2s:
-	    	command = submission.format(MODEL, CV_SPLITS, AVERAGE_OVER, k, l, l2)
-	    	print('Submitting job #{:02} for K={}, L={},  L2={}: {}'.format(i, k, l, l2, command))
-	    	os.system(command)
-	    	i += 1
+for k in K_batch:
+    submission_formatted = submission.format(len(L_batch)*len(L2_batch), K, floatListToStr(L_batch), floatListToStr(L2_batch), dry)
+    print('Submitting job #{:02}: {}'.format(i, submission_formatted))
+    os.system(submission_formatted)
+    i += 1

@@ -380,7 +380,7 @@ def train(raw_data):
             K_param = str(args.param)
         else:
             K_param = str(args.param[0])
-        score_filename = 'data/scores_{}_{}_{:.3}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_param, args.L)
+        score_filename = 'data/scores_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_param, args.L, args.L2)
         pickle.dump(npscore, open(score_filename, 'wb'))
         if len(scores) > 1:
             try:
