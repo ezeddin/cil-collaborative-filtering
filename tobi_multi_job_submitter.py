@@ -25,13 +25,13 @@ if input('Delete all previous score files? (y/n) ') == 'y':
 
 if input('Dry run? (y/n)') == 'y':
 	dry = "True"
-else
+else:
 	dry = "False"
 
 print('Starting submitting jobs:')
 i = 0
 for k in K_batch:
-    submission_formatted = submission.format(len(L_batch)*len(L2_batch), K, floatListToStr(L_batch), floatListToStr(L2_batch), dry)
+    submission_formatted = submission.format(len(L_batch)*len(L2_batch), k, floatListToStr(L_batch), floatListToStr(L2_batch), dry)
     print('Submitting job #{:02}: {}'.format(i, submission_formatted))
     os.system(submission_formatted)
     i += 1
