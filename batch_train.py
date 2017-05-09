@@ -14,7 +14,7 @@ import argparse
 from http://stackoverflow.com/questions/15414027/multiprocessing-pool-makes-numpy-matrix-multiplication-slower
 """
 
-params = '--model=SGD+ --cv_splits=14 --score_averaging=3 --external_matrix=True --param={} --L={:.4} --L2={:.4} --subtract_mean=False'
+params = '--model=SGD+ --cv_splits=14 --score_averaging=5 --external_matrix=True --param={} --L={:.4} --L2={:.4} --subtract_mean=False'
 
 raw_data = None
 
