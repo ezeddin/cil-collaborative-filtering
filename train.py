@@ -24,7 +24,6 @@ NB_USERS = 10000
 NB_ITEMS = 1000
 
 SGD_ITER = 60000000
-INJECT_TEST_DATA = False
 args = None
 
 np.random.seed(0)
@@ -91,15 +90,6 @@ def load_data(filename):
             cols[i] = int(c[0][1:]) - 1 # 0-based indexing
     data = scipy.sparse.csr_matrix((values, (rows, cols)), shape=(NB_ITEMS, NB_USERS), dtype='float')
     nb_ratings = data.getnnz()
-
-    if INJECT_TEST_DATA: 
-        data = np.array([
-            [0, 0, 5, 4, 0, 0],
-            [0, 2, 0, 0, 0, 1],
-            [6, 0, 0, 0, 8, 0],
-            [0, 2, 1, 0, 0, 0],
-            ])
-        nb_ratings = (data!=0).sum()
 
     print('Dataset has {} non zero values'.format(nb_ratings))
     print('average rating : {}'.format( data.sum() / nb_ratings))
@@ -336,6 +326,8 @@ def run_model(training_data, test_data, param1):
         predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v, L=args.L, L2=args.L2, use_bias=False)
     elif args.model == 'SGD+':
         predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v, L=args.L, L2=args.L2)
+    else:
+        assert 'Model not supported'
     if args.postproc:
         post_process(predictions)
     return predictions

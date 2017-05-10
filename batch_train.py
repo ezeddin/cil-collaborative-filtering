@@ -14,7 +14,7 @@ import argparse
 from http://stackoverflow.com/questions/15414027/multiprocessing-pool-makes-numpy-matrix-multiplication-slower
 """
 
-params = '--model=SGD+ --cv_splits=14 --score_averaging=5 --param={} --L={:.4} --external_matrix=True --L2={:.4} --subtract_mean=False'
+params = '--model=SGD+ --cv_splits=14 --score_averaging=5 --param={} --L={:.4} --L2={:.4} --subtract_mean=False --external_matrix=True'
 
 raw_data = None
 
@@ -38,10 +38,14 @@ def work(K, L, L2, dry_run):
         for l in L:
             for l2 in L2:
                 print('Starting process: {}'.format(params.format(k,l,l2)))
-                children.append(multiprocessing.Process(target=worker_function,args=(result_queue, i, k, l, l2)))
+                if dry_run == False:
+                    children.append(multiprocessing.Process(target=worker_function,args=(result_queue, i, k, l, l2)))
                 i += 1
 
-    
+    if not dry_run == False:
+        print('Stopping process starting, because \'dry_run\' was activated.\nThat could cause some errors below this line...')
+        return
+
     # Run child processes.
     print('Starting {} processes...'.format(len(K)*len(L)*len(L2)))
     for c in children:
@@ -105,8 +109,11 @@ def main():
     
     print('Saving result in pickle file...')
     pickle.dump(result, open(filename+'.pkl', 'wb'))
-    print('Saving result in matlab file...')
-    scipy.io.savemat(filename+'.mat', mdict={'k': result[0], 'l': result[1], 'l2': result[2], 'scores': result[3]})
+    print('Saving result in textfile...')
+    with open(filename+'.txt', 'w') as f:
+    	f.write('K  | L      | L2     | Score\n---+--------+--------+---------\n')
+    	for k,l,l2,s in list(zip(*result)):
+    		f.write('{:2d} | {:.4f} | {:.4f} | {:.5f}'.format(k,l,l2,s))
 
 
 if __name__ == '__main__':
