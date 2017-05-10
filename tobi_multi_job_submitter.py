@@ -22,7 +22,7 @@ L2_batch = [0.03,0.04,0.06]
 
 os.system('module load python/3.3.3')
 
-submission = 'bsub -n {} -B -N -W 04:00 -R "rusage[mem=1000]" "python3 batch_train.py --K=\'{}\' --L=\'{}\' --L2=\'{}\' "'
+submission = 'bsub -n {} -B -N -W 04:00 -R "rusage[mem=600]" "python3 batch_train.py --K=\'{}\' --L=\'{}\' --L2=\'{}\' "'
 
 if input('Delete all previous score files? (y/n) ') == 'y':
     os.system('rm data/scores_*')
