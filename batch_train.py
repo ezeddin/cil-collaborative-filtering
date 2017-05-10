@@ -14,7 +14,7 @@ import argparse
 from http://stackoverflow.com/questions/15414027/multiprocessing-pool-makes-numpy-matrix-multiplication-slower
 """
 
-params = '--model=SGD+ --cv_splits=14 --score_averaging=5 --param={} --L={:.4} --L2={:.4} --subtract_mean=False'
+params = '--model=SGD+ --cv_splits=14 --score_averaging=5 --param={} --L={:.4} --external_matrix=True --L2={:.4} --subtract_mean=False'
 
 raw_data = None
 
@@ -38,13 +38,10 @@ def work(K, L, L2, dry_run):
         for l in L:
             for l2 in L2:
                 print('Starting process: {}'.format(params.format(k,l,l2)))
-                if not dry_run:
-                    children.append(multiprocessing.Process(target=worker_function,args=(result_queue, i, k, l, l2)))
+                children.append(multiprocessing.Process(target=worker_function,args=(result_queue, i, k, l, l2)))
                 i += 1
 
-    if dry_run:
-        return
-
+    
     # Run child processes.
     print('Starting {} processes...'.format(len(K)*len(L)*len(L2)))
     for c in children:
