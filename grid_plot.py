@@ -24,7 +24,7 @@ def print_2D(orig_scale0, orig_scale1, interp_factors, full_matrix):
     plt.colorbar(cmap=cm.jet)
 
 # import data
-files = glob.glob('data/grid_search_*.pkl')[:5:2]
+files = glob.glob('data/grid_search_*.pkl')
 
 ks = []
 ls = []
