@@ -91,7 +91,7 @@ def main():
 
     try:
         args.K = eval(args.K) if type(eval(args.K)) == list else [eval(args.K)]
-        args.L = eval(args.L) if type(eval(args.L)) == list else [eval(args.L2)]
+        args.L = eval(args.L) if type(eval(args.L)) == list else [eval(args.L)]
         args.L2 = eval(args.L2) if type(eval(args.L2)) == list else [eval(args.L2)]
     except Exception as e:
         print('Couldn\'t convert arguments to python expression')
