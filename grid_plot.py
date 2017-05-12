@@ -2,26 +2,16 @@ from matplotlib import cm
 import numpy as np
 import glob
 import pickle
+import scipy.ndimage
 import scipy.io
 from operator import itemgetter
 import matplotlib.pyplot as plt
+import matplotlib.colors as mc
+from mpl_toolkits.mplot3d import Axes3D
 #%matplotlib inline
 
-def print_2D(orig_scale0, orig_scale1, interp_factors, full_matrix):
-    # interpolate the data (since it is not equally distributed: used logspace)
-    # https://docs.scipy.org/doc/scipy/reference/tutorial/interpolate.html
-    n0 = len(orig_scale0)*interp_factors[0]
-    n1 = len(orig_scale1)*interp_factors[1]
-    kk = np.linspace(min(orig_scale0),max(orig_scale0),n0)
-    ll = np.linspace(min(orig_scale1),max(orig_scale1),n1)
-    f = scipy.interpolate.interp2d(orig_scale0, orig_scale1, full_matrix, kind='cubic')
-    zz = f(kk, ll)
-    #plt.imshow(zz.T, vmin=zz.min(), vmax=zz.max(), origin='lower',
-    #           extent=[min(orig_scale0), max(orig_scale0), min(orig_scale1), max(orig_scale1)],
-    #           aspect='auto', cmap=cm.jet)
-    ax.contourf(X, Y, A1, 100, zdir='z', offset=0)
-    # TODO: craft the colormap like in the matlab script
-    plt.colorbar(cmap=cm.jet)
+def logspace(start, stop, n):
+    return np.logspace(np.log10(start), np.log10(stop), n)
 
 # import data
 files = glob.glob('data/grid_search_*.pkl')
@@ -51,7 +41,7 @@ names = ['K', 'L', 'L2']
 scales = [sorted(list(set(ks))), sorted(list(set(ls))), sorted(list(set(l2s)))]
 dim_size = [len(s) for s in scales]
 dim0, dim1, dim2 = np.argsort(dim_size)
-full = np.empty(tuple(dim_size))
+full = np.ones(tuple(dim_size))*np.nan
 for entry in M:
     full[scales[0].index(entry[0]), scales[1].index(entry[1]), scales[2].index(entry[2])] = entry[3]
 
@@ -74,35 +64,28 @@ if dim_size[dim0] <= 4 and dim_size[dim1] <= 6:
     plt.show()
 # if there ARE enough points to plot a reasonable 2D grid,
 else:
-    assert False, 'function not ready yet'
-    fig = plt.figure(figsize=plt.figaspect(2)*1)
-    ax = fig.add_subplot(111, projection='3d')
+    dim0 = 0
+    dim1, dim2 = np.argsort(dim_size[1:]) + 1
+    fig = plt.figure()
+    #ax1 = fig.add_subplot(121)
+    #ax1.imshow(data, cmap=plt.cm.BrBG, interpolation='nearest', origin='lower', extent=[0,1,0,1])
+    #ax = fig.add_subplot(111, projection='3d')
+    ax2 = fig.add_subplot(111, projection='3d')
     for i, x0 in enumerate(scales[dim0]):
         # for the dimension with least values, paint multiple 2D densitiy plots
-        t = list(zip(*sorted([x for x in M if (x[dim0] == x0 and x[dim1] == x1)], key=itemgetter(dim2))))
-        plot_2D(...)
-        ax.contourf(X, Y, A1, 100, zdir='z', offset=0)
-    plt.xlabel('K')
-    plt.ylabel('L')
-    plt.zlabel('L2')
+        matrix_dim_reduction = [':']*3
+        matrix_dim_reduction[dim0] = str(i)
+        t = eval('full[{}]'.format(','.join(matrix_dim_reduction)))
+        #t = scipy.ndimage.zoom(t, 3)
+        x,y = np.meshgrid(scales[dim1], scales[dim2])
+        levels = logspace(np.min(full), np.max(full), 20)
+        norm = norm = mc.BoundaryNorm(levels, 256)
+        cset = ax2.contourf(x, y, t.T, zdir='z', offset=x0,
+                            alpha=0.5, cmap = plt.cm.jet, norm=norm,
+                            levels=levels, vmin=np.min(full), vmax=np.max(full))
+        ax2.set_zlim((min(scales[0]), max(scales[0])))
+    plt.colorbar(cset)
+    ax2.set_zlabel(names[dim0])
+    ax2.set_xlabel(names[dim1])
+    ax2.set_ylabel(names[dim2])
     plt.show()
-
-#%matplotlib qt
-
-# interpolate the data (since it is not equally distributed: used logspace)
-#n_interp = 30
-#kk = np.linspace(min(k_scale),max(k_scale),n_interp)
-#ll = np.linspace(min(l_scale),max(l_scale),n_interp)
-#f = scipy.interpolate.interp2d(k_scale, l_scale, z, kind='cubic')
-
-#zz = f(kk, ll)
-
-#plt.imshow(zz.T, vmin=zz.min(), vmax=zz.max(), origin='lower',
-#           extent=[min(k_scale), max(k_scale), min(l_scale), max(l_scale)],
-#           aspect='auto', cmap=cm.jet)
-#plt.xlabel('K')
-#plt.ylabel('L')
-#plt.colorbar(cmap=cm.jet)
-#plt.show()
-
-
