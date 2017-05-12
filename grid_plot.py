@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mc
 from scipy.interpolate import Rbf
 from matplotlib.widgets import Slider
+from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import RegularGridInterpolator
 #%matplotlib inline
 
