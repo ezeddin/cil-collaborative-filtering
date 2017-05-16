@@ -78,3 +78,9 @@ Example
 
 I run my python script using
 `bsub -n 1 -W 00:30 -N -B -R "rusage[mem=512]" "python3 train.py --model=SGD --cv_splits=8 --param=list(range(2,20)) --n_iter=20000000"`
+
+
+Authors
+=======
+
+Ezeddin Al Hakim, Cyril Stoller, Tobias Verhulst
