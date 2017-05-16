@@ -14,7 +14,7 @@ import argparse
 from http://stackoverflow.com/questions/15414027/multiprocessing-pool-makes-numpy-matrix-multiplication-slower
 """
 
-params = '--model=SGD+ --cv_splits=14 --score_averaging=5 --param={} --L={:.4} --L2={:.4} --subtract_mean=False --external_matrix=True'
+params = '--model=SGD+ --cv_splits=14 --score_averaging=5 --K={} --L={:.4} --L2={:.4} --subtract_mean=False --external_matrix=True'
 
 raw_data = None
 
@@ -111,9 +111,9 @@ def main():
     pickle.dump(result, open(filename+'.pkl', 'wb'))
     print('Saving result in textfile...')
     with open(filename+'.txt', 'w') as f:
-    	f.write('K  | L      | L2     | Score\n---+--------+--------+---------\n')
-    	for k,l,l2,s in list(zip(*result)):
-    		f.write('{:2d} | {:.4f} | {:.4f} | {:.5f}'.format(k,l,l2,s))
+        f.write('K  | L      | L2     | Score\n---+--------+--------+---------\n')
+        for k,l,l2,s in list(zip(*result)):
+            f.write('{:2d} | {:.4f} | {:.4f} | {:.5f}\n'.format(k,l,l2,s))
 
 
 if __name__ == '__main__':

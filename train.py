@@ -37,17 +37,17 @@ def main(arguments, matrix=None):
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--submission', type=bool, default=False,
                         help='Omit local validation, just export submission file.')
-    parser.add_argument('--model', type=str, default='SGD',
+    parser.add_argument('--model', type=str, default='SGD+',
                         help='Prediction algorithm: average, SVD, SVD2, SGD, SGD+')
     parser.add_argument('--cv_splits', type=int, default=14,
                         help='Number of data splits for cross validation')
     parser.add_argument('--score_averaging', type=int, default=1,
                         help='On how many of the splits should be tested?')
-    parser.add_argument('--param', type=str, default="12",
-                        help='Hyper parameter, can also be a list')
-    parser.add_argument('--L', type=float, default=0.1,
-                        help='Hyper parameter for SGD')
-    parser.add_argument('--L2', type=float, default=0.2,
+    parser.add_argument('--K', type=str, default="12",
+                        help='Latent feature dimension size, can also be a list')
+    parser.add_argument('--L', type=float, default=0.09,
+                        help='Regularizer for SGD')
+    parser.add_argument('--L2', type=float, default=0.05,
                         help='Bias regularizer in SGD+')
     parser.add_argument('--lr_factor', type=float, default=3.0,
                         help='Multiplier for the learning rate.')
@@ -61,9 +61,17 @@ def main(arguments, matrix=None):
                         help='Subtracts the mean of the data matrix in preprocessing')
     parser.add_argument('--external_matrix', type=bool, default=False,
                         help='In a multiprocessing environment: get matrices from external arguments')
+    parser.add_argument('--uv_init_mean', type=float, default=None,
+                        help='Mean value of random initialization of U and V matrices (if None, depends on K)')
+    parser.add_argument('--uv_init_std', type=float, default=0.1,
+                        help='Standard deviation of random initialization of U and V matrices')
+    parser.add_argument('--bias_init_mean', type=float, default=None,
+                        help='Mean value of random initialization of bias vectors (if None, initialization with row and column averages)')
+    parser.add_argument('--bias_init_std', type=float, default=0.0,
+                        help='Standard deviation of random initialization of bias vectors')
     args = parser.parse_args(arguments)
-    args.param = eval(args.param)
-    args.param = args.param if type(args.param) == list else [args.param]
+    args.K = eval(args.K)
+    args.K = args.K if type(args.K) == list else [args.K]
 
     if args.external_matrix:
         # data is given in argument to main()
@@ -205,23 +213,29 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
     print_every = SGD_ITER / args.n_messages
     
     if use_bias:
-        biasU = np.zeros(matrix.shape[0])
-        biasV = np.zeros(matrix.shape[1])
+        if args.bias_init_mean == None:
+            biasU = np.average(matrix, axis=1) - global_mean
+            biasV = np.average(matrix, axis=0) - global_mean
+        else:
+            biasU = np.random.normal(args.bias_init_mean, args.bias_init_std, matrix.shape[0])
+            biasV = np.random.normal(args.bias_init_mean, args.bias_init_std, matrix.shape[1])
+            #biasU = np.zeros(matrix.shape[0])
+            #biasV = np.zeros(matrix.shape[1])
 
     if args.subtract_mean:
         optional_zero_mean = global_mean
     else:
         optional_zero_mean = 0.0
         
+    mean = args.uv_init_mean if args.uv_init_mean else np.sqrt(global_mean/K)
+    bound_u = mean - args.uv_init_std/2
+    bound_l = mean + args.uv_init_std/2
+    U = np.random.uniform(bound_u, bound_l, (matrix.shape[0], K))
+    V = np.random.uniform(bound_u, bound_l, (matrix.shape[1], K))
 
-    bound = 1/np.sqrt(K)
-    U = np.random.uniform(0, bound,(matrix.shape[0],K))
-    V = np.random.uniform(0, bound,(matrix.shape[1],K))
-
-    
     
     if verbose > 0 :
-        print("      SGD: sgd_prediction called. biases={}, K = {}, L = {}, L2= {}, lrf= {}".format(use_bias, K, L, L2, args.lr_factor))
+        print("      SGD: sgd_prediction called. biases={}, K={}, L={}, L2={}, lrf={}".format(use_bias, K, L, L2, args.lr_factor))
         print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
         print("      SGD: global mean is {}".format(global_mean))
     lr = sgd_learning_rate(0,0)
@@ -254,7 +268,9 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
                 new_biasV_n = biasV_n + lr * ( delta - L2*(biasV_n + biasU_d - global_mean + optional_zero_mean))
 
         except FloatingPointError:
-            print ("WARNING: FLOATING POINT ERROR CAUGHT!")
+            print("WARNING: FLOATING POINT ERROR CAUGHT!")
+            print('Returning training set matrix as result (should have very bad score)')
+            return matrix
         else:
             U[d,:] = new_U_d
             V[n,:] = new_V_n
@@ -275,7 +291,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
             if args.submission:
                 multi_runs = 1
             else:
-                multi_runs = len(args.param)*args.score_averaging
+                multi_runs = len(args.K)*args.score_averaging
             duration = t_after_100/500000*SGD_ITER*multi_runs
             end = datetime.datetime.now() + duration
             print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
@@ -308,7 +324,7 @@ def post_process(predictions):
     predictions[predictions < 1.0] = 1.0
 
 
-def run_model(training_data, test_data, param1):
+def run_model(training_data, test_data, K):
     # problem with this variant: there are no more zero-entries in the matrix -> line 219 is useless..
     #if args.subtract_mean:
     #    bias = training_data.mean()
@@ -319,13 +335,13 @@ def run_model(training_data, test_data, param1):
     if args.model == 'average':
         predictions = averaging_fill_up(training_data)
     elif args.model == 'SVD':
-        predictions = svd_prediction(averaging_fill_up(training_data), K=param1)
+        predictions = svd_prediction(averaging_fill_up(training_data), K=K)
     elif args.model == 'SVD2':
-        predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=param1)
+        predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=K)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v, L=args.L, L2=args.L2, use_bias=False)
+        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, use_bias=False)
     elif args.model == 'SGD+':
-        predictions = sgd_prediction(training_data, test_data, K=param1, verbose=args.v, L=args.L, L2=args.L2)
+        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2)
     else:
         assert 'Model not supported'
     if args.postproc:
@@ -352,41 +368,41 @@ def train(raw_data):
         scores = []
         print("creating {} splits for Cross-Validation!".format(args.cv_splits))
         splits = split_randomly(raw_data, args.cv_splits)        
-        for param in args.param:
-            print("Testing with hyperparameter {}".format(param))
+        for K in args.K:
+            print("Testing with K = {}".format(K))
             avg_scores = []
             for i in range(args.cv_splits):
                 if i >= args.score_averaging:
                     continue
                 training_data, test_data = build_train_and_test(raw_data, splits, i)
                 print('    running model when leaving out split {}'.format(i))
-                avg_scores.append(validate(test_data, run_model(training_data, test_data, param)))
+                avg_scores.append(validate(test_data, run_model(training_data, test_data, K)))
                 print('    got score : {}'.format(avg_scores[-1]))
 
-            scores.append([param, np.average(avg_scores)])
-            print('  score = {} for param='.format(scores[-1][1]), param)
+            scores.append([K, np.average(avg_scores)])
+            print('  score = {} for K = {}'.format(scores[-1][1], K))
 
         print('Saving final score in data/scores_<timestamp>.pkl')
         npscore = np.array(scores)
-        if len(args.param) > 1:
-            K_param = str(args.param)
+        if len(args.K) > 1:
+            K_str = str(args.K)
         else:
-            K_param = str(args.param[0])
-        score_filename = 'data/scores_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_param, args.L, args.L2)
+            K_str = str(args.K[0])
+        score_filename = 'data/scores_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_str, args.L, args.L2)
         pickle.dump(npscore, open(score_filename, 'wb'))
         if len(scores) > 1:
             try:
                 plt.plot(npscore[:,0], npscore[:,1])
-                plt.xlabel('param')
+                plt.xlabel('K')
                 plt.ylabel('score')
             except:
                 print('Plotting not working.')
         return scores
     else:
-        assert len(args.param) == 1, "We want to export a submission! Hyperparameter can't be a list!"
-        predictions = run_model(raw_data, None, args.param[0])
+        assert len(args.K) == 1, "We want to export a submission! Hyperparameter can't be a list!"
+        predictions = run_model(raw_data, None, args.K[0])
         print_stats(predictions)
-        filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.param, args.L)
+        filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.K, args.L)
         write_data(filename, predictions)
         return predictions
 
