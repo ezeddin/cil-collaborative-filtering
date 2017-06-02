@@ -390,11 +390,11 @@ def run_model(training_data, test_data, K):
     elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=K)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, uv_matrices=args.uv_matrices, use_bias=False)
+        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path, use_bias=False)
     elif args.model == 'SGD+':
-        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, uv_matrices=args.uv_matrices)
+        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path,)
     elif args.model == 'SGDnn':
-        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_uv_matrices=args.save_uv_matrices uv_matrices=args.uv_matrices, use_nn=True)
+        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path, use_nn=True)
     else:
         assert 'Model not supported'
     if args.postproc:
