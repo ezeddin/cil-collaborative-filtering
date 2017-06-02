@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 import math
 from helpers import Logger
 import random 
+from keras.models import Sequential
+from keras.layers import Dense, Activation
+import os
 
 #%matplotlib inline
 
@@ -24,6 +27,7 @@ NB_USERS = 10000
 NB_ITEMS = 1000
 
 SGD_ITER = 60000000
+# SGD_ITER = 1000
 args = None
 
 np.random.seed(0)
@@ -45,9 +49,9 @@ def main(arguments, matrix=None):
                         help='On how many of the splits should be tested?')
     parser.add_argument('--K', type=str, default="12",
                         help='Latent feature dimension size, can also be a list')
-    parser.add_argument('--L', type=float, default=0.09,
+    parser.add_argument('--L', type=float, default=0.083,
                         help='Regularizer for SGD')
-    parser.add_argument('--L2', type=float, default=0.05,
+    parser.add_argument('--L2', type=float, default=0.04,
                         help='Bias regularizer in SGD+')
     parser.add_argument('--lr_factor', type=float, default=3.0,
                         help='Multiplier for the learning rate.')
@@ -61,6 +65,10 @@ def main(arguments, matrix=None):
                         help='Subtracts the mean of the data matrix in preprocessing')
     parser.add_argument('--external_matrix', type=bool, default=False,
                         help='In a multiprocessing environment: get matrices from external arguments')
+    parser.add_argument('--model_path', type=str, default=None,
+                    help='load all matrices from external arguments')
+    parser.add_argument('--save_model', type=bool, default=False,
+                    help='save all matrices')
     parser.add_argument('--uv_init_mean', type=float, default=None,
                         help='Mean value of random initialization of U and V matrices (if None, depends on K)')
     parser.add_argument('--uv_init_std', type=float, default=0.1,
@@ -199,7 +207,32 @@ def svd_prediction(matrix, K=15):
     return U2.dot(np.diag(S2)).dot(VT2)
 
 
-def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
+
+def retrain_U(matrix, V):
+    pred_matrix = np.copy(matrix)
+    for i in range(matrix.shape[0]):
+        non_zero_indices = np.where(matrix[i] != 0)[0]
+        zero_indices = np.where(matrix[i] == 0)[0]
+
+        input_data = V[non_zero_indices]
+        output_data = matrix[i][non_zero_indices]
+
+        K = V.shape[1]
+
+        model = Sequential()
+        model.add(Dense(units=K, input_dim=K, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(units=1, kernel_initializer='normal'))
+        # Compile model
+        model.compile(loss='mean_squared_error', optimizer='adam')
+
+        model.fit(input_data, output_data, nb_epoch=1000, batch_size=input_data.shape[0])
+        pred_input_data = V[zero_indices]
+        pred_output_data = model.predict(pred_input_data, batch_size=pred_input_data.shape[0])
+        pred_matrix[i][zero_indices] = pred_output_data
+    return pred_matrix
+
+
+def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model_path=None, use_bias=True, use_nn=False):
     """
         matrix is the training dataset with nonzero entries only where ratings are given
         
@@ -207,98 +240,116 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, use_bias=True):
                   1 for inital messages
                   2 for steps
     """
-    non_zero_indices = list(zip(*np.nonzero(matrix)))
-    global_mean = matrix.sum() / len(non_zero_indices)
     
-    print_every = SGD_ITER / args.n_messages
-    
-    if use_bias:
-        if args.bias_init_mean == None:
-            biasU = np.average(matrix, axis=1) - global_mean
-            biasV = np.average(matrix, axis=0) - global_mean
-        else:
-            biasU = np.random.normal(args.bias_init_mean, args.bias_init_std, matrix.shape[0])
-            biasV = np.random.normal(args.bias_init_mean, args.bias_init_std, matrix.shape[1])
-            #biasU = np.zeros(matrix.shape[0])
-            #biasV = np.zeros(matrix.shape[1])
-
-    if args.subtract_mean:
-        optional_zero_mean = global_mean
-    else:
-        optional_zero_mean = 0.0
+    if model_path == None:
+        non_zero_indices = list(zip(*np.nonzero(matrix)))
+        global_mean = matrix.sum() / len(non_zero_indices)
         
-    mean = args.uv_init_mean if args.uv_init_mean else np.sqrt(global_mean/K)
-    bound_u = mean - args.uv_init_std/2
-    bound_l = mean + args.uv_init_std/2
-    U = np.random.uniform(bound_u, bound_l, (matrix.shape[0], K))
-    V = np.random.uniform(bound_u, bound_l, (matrix.shape[1], K))
-
-    
-    if verbose > 0 :
-        print("      SGD: sgd_prediction called. biases={}, K={}, L={}, L2={}, lrf={}".format(use_bias, K, L, L2, args.lr_factor))
-        print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
-        print("      SGD: global mean is {}".format(global_mean))
-    lr = sgd_learning_rate(0,0)
-    start_time = datetime.datetime.now()
-    for t in range(SGD_ITER):
-        if t % 1000000 == 0:
-            lr = sgd_learning_rate(t, lr)
-        d,n = random.choice(non_zero_indices)
-            
+        print_every = SGD_ITER / args.n_messages
         
-        #TODO : if convergence is slow, we could use a bigger batch size (update more indexes at once)
-        U_d = U[d,:]
-        V_n = V[n,:]
-
-        guess = U_d.dot(V_n)
         if use_bias:
-            biasU_d = biasU[d]
-            biasV_n = biasV[n]
-            guess += biasU_d + biasV_n
-        
-        delta = matrix[d,n] - guess - optional_zero_mean
-        #delta = np.clip(delta, -1e5, 1e5)
+            if args.bias_init_mean == None:
+                biasU = np.average(matrix, axis=1) - global_mean
+                biasV = np.average(matrix, axis=0) - global_mean
+            else:
+                biasU = np.random.normal(args.bias_init_mean, args.bias_init_std, matrix.shape[0])
+                biasV = np.random.normal(args.bias_init_mean, args.bias_init_std, matrix.shape[1])
+                #biasU = np.zeros(matrix.shape[0])
+                #biasV = np.zeros(matrix.shape[1])
 
-        try:
-            new_U_d = U_d + lr * (delta * V_n - L*U_d)
-            new_V_n = V_n + lr * (delta * U_d - L*V_n)
-
-            if use_bias:
-                new_biasU_d = biasU_d + lr * ( delta - L2*(biasU_d + biasV_n - global_mean + optional_zero_mean))
-                new_biasV_n = biasV_n + lr * ( delta - L2*(biasV_n + biasU_d - global_mean + optional_zero_mean))
-
-        except FloatingPointError:
-            print("WARNING: FLOATING POINT ERROR CAUGHT!")
-            print('Returning training set matrix as result (should have very bad score)')
-            return matrix
+        if args.subtract_mean:
+            optional_zero_mean = global_mean
         else:
-            U[d,:] = new_U_d
-            V[n,:] = new_V_n
-            if use_bias : 
-                biasU[d] = new_biasU_d
-                biasV[n] = new_biasV_n
-        if verbose == 2 and t % print_every == 0:
-            if use_bias:
-                score = validate(matrix, U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean)
-                test_score = validate(test_data, U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean) if test_data is not None else -1
-            else:
-                score = validate(matrix, U.dot(V.T) + optional_zero_mean)
-                test_score = validate(test_data, U.dot(V.T) + optional_zero_mean) if test_data is not None else -1
+            optional_zero_mean = 0.0
+            
+        mean = args.uv_init_mean if args.uv_init_mean else np.sqrt(global_mean/K)
+        bound_u = mean - args.uv_init_std/2
+        bound_l = mean + args.uv_init_std/2
+        U = np.random.uniform(bound_u, bound_l, (matrix.shape[0], K))
+        V = np.random.uniform(bound_u, bound_l, (matrix.shape[1], K))
 
-            print("      SGD : step {:8d}  ({:2d} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.5f}".format(t+1, int(100 * (t+1) /SGD_ITER), score, test_score, lr))
-        if t == 500000:
-            t_after_100 = datetime.datetime.now() - start_time;
-            if args.submission:
-                multi_runs = 1
+        
+        if verbose > 0 :
+            print("      SGD: sgd_prediction called. biases={}, K={}, L={}, L2={}, lrf={}".format(use_bias, K, L, L2, args.lr_factor))
+            print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
+            print("      SGD: global mean is {}".format(global_mean))
+        lr = sgd_learning_rate(0,0)
+        start_time = datetime.datetime.now()
+        for t in range(SGD_ITER):
+            if t % 1000000 == 0:
+                lr = sgd_learning_rate(t, lr)
+            d,n = random.choice(non_zero_indices)
+                
+            
+            #TODO : if convergence is slow, we could use a bigger batch size (update more indexes at once)
+            U_d = U[d,:]
+            V_n = V[n,:]
+
+            guess = U_d.dot(V_n)
+            if use_bias:
+                biasU_d = biasU[d]
+                biasV_n = biasV[n]
+                guess += biasU_d + biasV_n
+            
+            delta = matrix[d,n] - guess - optional_zero_mean
+            #delta = np.clip(delta, -1e5, 1e5)
+
+            try:
+                new_U_d = U_d + lr * (delta * V_n - L*U_d)
+                new_V_n = V_n + lr * (delta * U_d - L*V_n)
+
+                if use_bias:
+                    new_biasU_d = biasU_d + lr * ( delta - L2*(biasU_d + biasV_n - global_mean + optional_zero_mean))
+                    new_biasV_n = biasV_n + lr * ( delta - L2*(biasV_n + biasU_d - global_mean + optional_zero_mean))
+
+            except FloatingPointError:
+                print("WARNING: FLOATING POINT ERROR CAUGHT!")
+                print('Returning training set matrix as result (should have very bad score)')
+                return matrix
             else:
-                multi_runs = len(args.K)*args.score_averaging
-            duration = t_after_100/500000*SGD_ITER*multi_runs
-            end = datetime.datetime.now() + duration
-            print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))        
-    if use_bias:
+                U[d,:] = new_U_d
+                V[n,:] = new_V_n
+                if use_bias : 
+                    biasU[d] = new_biasU_d
+                    biasV[n] = new_biasV_n
+            if verbose == 2 and t % print_every == 0:
+                if use_bias:
+                    score = validate(matrix, U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean)
+                    test_score = validate(test_data, U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean) if test_data is not None else -1
+                else:
+                    score = validate(matrix, U.dot(V.T) + optional_zero_mean)
+                    test_score = validate(test_data, U.dot(V.T) + optional_zero_mean) if test_data is not None else -1
+
+                print("      SGD : step {:8d}  ({:2d} % done!). fit = {:.4f}, test_fit={:.4f}, lr={:.5f}".format(t+1, int(100 * (t+1) /SGD_ITER), score, test_score, lr))
+            if t == 500000:
+                t_after_100 = datetime.datetime.now() - start_time;
+                if args.submission:
+                    multi_runs = 1
+                else:
+                    multi_runs = len(args.K)*args.score_averaging
+                duration = t_after_100/500000*SGD_ITER*multi_runs
+                end = datetime.datetime.now() + duration
+                print("    Expected duration: {}, ending at time {}".format(str(duration).split('.')[0], str(end).split('.')[0]))
+
+    else:
+        U, V, optional_zero_mean, biasU, biasV = pickle.load(open(model_path, 'rb'))        
+    
+    if use_nn:
+        if save_model:
+            filename = 'data/mode_SGDnn_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_str, args.L, args.L2)
+            pickle.dump([U, V, optional_zero_mean, None, None], open(filename, 'wb'))
+        return retrain_U(matrix, V)
+    elif use_bias:
+        if save_model:
+            filename = 'data/mode_SGD+_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_str, args.L, args.L2)
+            pickle.dump([U, V, optional_zero_mean, biasU, biasV], open(filename, 'wb'))
         return U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean
     else:
+        if save_model:
+            filename = 'data/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_str, args.L, args.L2)
+            pickle.dump([U, V, optional_zero_mean, None, None], open(filename, 'wb'))
         return U.dot(V.T) + optional_zero_mean
+
 
 
 def sgd_learning_rate(t, current):
@@ -339,9 +390,11 @@ def run_model(training_data, test_data, K):
     elif args.model == 'SVD2':
         predictions = svd_prediction(sampling_distribution_fill_up(training_data), K=K)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, use_bias=False)
+        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, uv_matrices=args.uv_matrices, use_bias=False)
     elif args.model == 'SGD+':
-        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2)
+        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, uv_matrices=args.uv_matrices)
+    elif args.model == 'SGDnn':
+        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_uv_matrices=args.save_uv_matrices uv_matrices=args.uv_matrices, use_nn=True)
     else:
         assert 'Model not supported'
     if args.postproc:
