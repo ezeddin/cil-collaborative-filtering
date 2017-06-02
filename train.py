@@ -12,7 +12,7 @@ import math
 from helpers import Logger
 import random 
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Activation, Dropout
 import os
 
 #%matplotlib inline
@@ -231,6 +231,7 @@ def retrain_U(matrix, test_data, V):
             model.add(Dense(units=l_units, input_dim=K, kernel_initializer='normal', activation=l_activtor))
             for l_units, l_activtor in config[1:]:
                 model.add(Dense(units=l_units, kernel_initializer='normal', activation=l_activtor))
+                # model.add(Dropout(0.5))
             model.add(Dense(units=1, kernel_initializer='normal'))
             # Compile model
             model.compile(loss='mean_squared_error', optimizer='adam')
@@ -348,17 +349,17 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
     
     if use_nn:
         if save_model:
-            filename = 'data/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
+            filename = 'save/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
             pickle.dump([U, V, optional_zero_mean, None, None], open(filename, 'wb'))
         return retrain_U(matrix, test_data, V)
     elif use_bias:
         if save_model:
-            filename = 'data/mode_SGD+_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
+            filename = 'save/mode_SGD+_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
             pickle.dump([U, V, optional_zero_mean, biasU, biasV], open(filename, 'wb'))
         return U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean
     else:
         if save_model:
-            filename = 'data/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
+            filename = 'save/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
             pickle.dump([U, V, optional_zero_mean, None, None], open(filename, 'wb'))
         return U.dot(V.T) + optional_zero_mean
 
