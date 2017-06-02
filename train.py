@@ -26,8 +26,8 @@ SUBMISSION_FORMAT='r{{}}_c{{}},{{:.{}f}}\n'.format(ROUND)
 NB_USERS = 10000
 NB_ITEMS = 1000
 
-SGD_ITER = 60000000
-# SGD_ITER = 1000
+# SGD_ITER = 60000000
+SGD_ITER = 1000
 args = None
 
 np.random.seed(0)
@@ -208,29 +208,40 @@ def svd_prediction(matrix, K=15):
 
 
 
-def retrain_U(matrix, V):
-    pred_matrix = np.copy(matrix)
-    for i in range(matrix.shape[0]):
-        non_zero_indices = np.where(matrix[i] != 0)[0]
-        zero_indices = np.where(matrix[i] == 0)[0]
+def retrain_U(matrix, test_data, V):
+    K = V.shape[1]
+    configs = [
+        [(K,"relu")],
+        [(2*K, "relu"), (K,"relu")],
+        [(2*K, "relu"), (K,"relu"),(K/2, "relu")]
+    ]
 
-        input_data = V[non_zero_indices]
-        output_data = matrix[i][non_zero_indices]
+    scores = []
+    for config in configs:
+        pred_matrix = np.copy(matrix)
+        for i in range(matrix.shape[0]):
+            non_zero_indices = np.where(matrix[i] != 0)[0]
+            zero_indices = np.where(matrix[i] == 0)[0]
 
-        K = V.shape[1]
+            input_data = V[non_zero_indices]
+            output_data = matrix[i][non_zero_indices]
 
-        model = Sequential()
-        model.add(Dense(units=K, input_dim=K, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(units=1, kernel_initializer='normal'))
-        # Compile model
-        model.compile(loss='mean_squared_error', optimizer='adam')
+            model = Sequential()
+            l_units, l_activtor = config[0]
+            model.add(Dense(units=l_units, input_dim=K, kernel_initializer='normal', activation=l_activtor))
+            for l_units, l_activtor in config[1:]:
+                model.add(Dense(units=l_units, kernel_initializer='normal', activation=l_activtor))
+            model.add(Dense(units=1, kernel_initializer='normal'))
+            # Compile model
+            model.compile(loss='mean_squared_error', optimizer='adam')
 
-        model.fit(input_data, output_data, nb_epoch=1000, batch_size=input_data.shape[0])
-        pred_input_data = V[zero_indices]
-        pred_output_data = model.predict(pred_input_data, batch_size=pred_input_data.shape[0])
-        pred_matrix[i][zero_indices] = pred_output_data
+            model.fit(input_data, output_data, nb_epoch=1000, batch_size=input_data.shape[0])
+            pred_input_data = V[zero_indices]
+            pred_output_data = model.predict(pred_input_data, batch_size=pred_input_data.shape[0])
+            pred_matrix[i][zero_indices] = pred_output_data
+        scores.append(validate(test_data,pred_matrix))
+    print("Scores obtained : " + str(scores))
     return pred_matrix
-
 
 def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model_path=None, use_bias=True, use_nn=False):
     """
@@ -336,20 +347,19 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
     
     if use_nn:
         if save_model:
-            filename = 'data/mode_SGDnn_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_str, args.L, args.L2)
+            filename = 'data/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
             pickle.dump([U, V, optional_zero_mean, None, None], open(filename, 'wb'))
-        return retrain_U(matrix, V)
+        return retrain_U(matrix, test_data, V)
     elif use_bias:
         if save_model:
-            filename = 'data/mode_SGD+_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_str, args.L, args.L2)
+            filename = 'data/mode_SGD+_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
             pickle.dump([U, V, optional_zero_mean, biasU, biasV], open(filename, 'wb'))
         return U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean
     else:
         if save_model:
-            filename = 'data/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_str, args.L, args.L2)
+            filename = 'data/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
             pickle.dump([U, V, optional_zero_mean, None, None], open(filename, 'wb'))
         return U.dot(V.T) + optional_zero_mean
-
 
 
 def sgd_learning_rate(t, current):
