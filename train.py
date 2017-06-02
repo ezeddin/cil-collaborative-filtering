@@ -26,8 +26,8 @@ SUBMISSION_FORMAT='r{{}}_c{{}},{{:.{}f}}\n'.format(ROUND)
 NB_USERS = 10000
 NB_ITEMS = 1000
 
-# SGD_ITER = 60000000
-SGD_ITER = 1000
+SGD_ITER = 60000000
+
 args = None
 
 np.random.seed(0)
@@ -239,6 +239,7 @@ def retrain_U(matrix, test_data, V):
             pred_input_data = V[zero_indices]
             pred_output_data = model.predict(pred_input_data, batch_size=pred_input_data.shape[0])
             pred_matrix[i][zero_indices] = pred_output_data
+            print("user {}, config {}".format(i, config))
         scores.append(validate(test_data,pred_matrix))
     print("Scores obtained : " + str(scores))
     return pred_matrix
