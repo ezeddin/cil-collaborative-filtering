@@ -42,11 +42,11 @@ def main(arguments, matrix=None):
     parser.add_argument('--submission', type=bool, default=False,
                         help='Omit local validation, just export submission file.')
     parser.add_argument('--model', type=str, default='SGD+',
-                        help='Prediction algorithm: average, SVD, SVD2, SGD, SGD+')
+                        help='Prediction algorithm: average, SVD, SVD2, SGD, SGD+, SGDnn')
     parser.add_argument('--cv_splits', type=int, default=14,
                         help='Number of data splits for cross validation')
     parser.add_argument('--score_averaging', type=int, default=1,
-                        help='On how many of the splits should be tested?')
+                        help='How many splits should be used as test data?')
     parser.add_argument('--K', type=str, default="12",
                         help='Latent feature dimension size, can also be a list')
     parser.add_argument('--L', type=float, default=0.083,
@@ -55,8 +55,6 @@ def main(arguments, matrix=None):
                         help='Bias regularizer in SGD+')
     parser.add_argument('--lr_factor', type=float, default=3.0,
                         help='Multiplier for the learning rate.')
-    parser.add_argument('--postproc', type=bool, default=True,
-                        help='Do post procession like range cropping')
     parser.add_argument('--v', type=int, default=2,
                         help='Verbosity of sgd: 0 for nothing, 1 for basic messages, 2 for steps')
     parser.add_argument('--n_messages', type=int, default=20,
@@ -267,8 +265,6 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
             else:
                 biasU = np.random.normal(args.bias_init_mean, args.bias_init_std, matrix.shape[0])
                 biasV = np.random.normal(args.bias_init_mean, args.bias_init_std, matrix.shape[1])
-                #biasU = np.zeros(matrix.shape[0])
-                #biasV = np.zeros(matrix.shape[1])
 
         if args.subtract_mean:
             optional_zero_mean = global_mean
@@ -409,8 +405,7 @@ def run_model(training_data, test_data, K):
         predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path, use_nn=True)
     else:
         assert 'Model not supported'
-    if args.postproc:
-        post_process(predictions)
+    post_process(predictions)
     return predictions
 
 
