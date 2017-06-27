@@ -186,7 +186,7 @@ def svd_prediction(matrix, K=15):
     VT2 = VT[:K, :]
     return U2.dot(np.diag(S2)).dot(VT2)
 
-def retrain_U(matrix, test_data, V):
+def retrain_U(matrix, test_data, V, biasV):
     K = V.shape[1]
     configs = [
         [(K,"relu")],
@@ -198,11 +198,10 @@ def retrain_U(matrix, test_data, V):
     #for config in configs:
     pred_matrix = np.copy(matrix)
     for i in range(matrix.shape[0]): #retrain for each user
-
         non_zero_indices = np.where(matrix[i] != 0)[0]
         zero_indices = np.where(matrix[i] == 0)[0]
         input_data = V[non_zero_indices]
-        output_data = matrix[i][non_zero_indices]
+        output_data = (matrix[i] - biasV)[non_zero_indices]
         
         """
         non_zero_indices_val = np.where(test_data[i] != 0)[0]
@@ -221,10 +220,10 @@ def retrain_U(matrix, test_data, V):
         # model.compile(loss='mean_squared_error', optimizer='adam')
 
         model.add(Dropout(0.5, input_shape=[K]))
-        model.add(Dense(1, init='uniform', activation='linear'))
+        model.add(Dense(1, init='uniform',use_bias=True, activation='linear'))
         model.compile(loss='mse', optimizer='sgd')
 
-        early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=3)
+        early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=5)
          
         model.fit(input_data, output_data, validation_split=0.1, verbose=2, nb_epoch=300, callbacks=[early_stopping])
         #model.fit(input_data, output_data, validation_data=(input_data_val, output_data_val),
@@ -236,7 +235,7 @@ def retrain_U(matrix, test_data, V):
         print("user {}, config {}".format(i, 1))
     #scores.append(validate(test_data,pred_matrix))
     #print("Scores obtained : " + str(scores))
-    return pred_matrix
+    return pred_matrix + biasV
 
 def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model_path=None, use_bias=True, use_nn=False):
     """
@@ -340,8 +339,8 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
     if use_nn:
         if save_model:
             filename = 'save/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
-            pickle.dump([U, V, optional_zero_mean, None, None], open(filename, 'wb'))
-        return retrain_U(matrix, test_data, V)
+            pickle.dump([U, V, optional_zero_mean, biasU, biasV], open(filename, 'wb'))
+        return retrain_U(matrix, test_data, V, biasV)
     elif use_bias:
         if save_model:
             filename = 'save/mode_SGD+_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
@@ -384,7 +383,7 @@ def run_model(training_data, test_data, K):
     elif args.model == 'SGD+':
         predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path,)
     elif args.model == 'SGDnn':
-        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path, use_bias=False, use_nn=True)
+        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path, use_nn=True)
     else:
         assert 'Model not supported'
     post_process(predictions)
