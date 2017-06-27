@@ -232,7 +232,7 @@ def retrain_U(matrix, test_data, V):
         
         pred_input_data = V[zero_indices]
         pred_output_data = model.predict(pred_input_data, verbose=2)
-        pred_matrix[i][zero_indices] = pred_output_data
+        pred_matrix[i][zero_indices] = pred_output_data[0]
         print("user {}, config {}".format(i, 1))
     #scores.append(validate(test_data,pred_matrix))
     #print("Scores obtained : " + str(scores))
