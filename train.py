@@ -220,7 +220,7 @@ def retrain_U(matrix, test_data, V):
         ## Compile model
         # model.compile(loss='mean_squared_error', optimizer='adam')
 
-        model.add(Dropout(0.6, input_shape=[K]))
+        model.add(Dropout(0.5, input_shape=[K]))
         model.add(Dense(1, init='uniform', activation='linear'))
         model.compile(loss='mse', optimizer='sgd')
 
@@ -384,7 +384,7 @@ def run_model(training_data, test_data, K):
     elif args.model == 'SGD+':
         predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path,)
     elif args.model == 'SGDnn':
-        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path, use_nn=True)
+        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path, use_bias=False, use_nn=True)
     else:
         assert 'Model not supported'
     post_process(predictions)
