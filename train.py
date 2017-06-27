@@ -220,10 +220,11 @@ def retrain_U(matrix, test_data, V):
         ## Compile model
         # model.compile(loss='mean_squared_error', optimizer='adam')
 
-        model.add(Dense(1, input_dim=K, init='uniform', activation='linear'))
+        model.add(Dropout(0.6, input_shape=[K]))
+        model.add(Dense(1, init='uniform', activation='linear'))
         model.compile(loss='mse', optimizer='sgd')
 
-        early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=2)
+        early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=3)
          
         model.fit(input_data, output_data, validation_split=0.1, verbose=2, nb_epoch=300, callbacks=[early_stopping])
         #model.fit(input_data, output_data, validation_data=(input_data_val, output_data_val),
