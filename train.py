@@ -69,6 +69,8 @@ def main(arguments, matrix=None):
                     help='load all matrices from external arguments')
     parser.add_argument('--save_model', type=bool, default=False,
                     help='save all matrices')
+    parser.add_argument('--dropout', type=float, default=0.5,
+                        help='Dropout value to use in neural network postprocessing.')
     parser.add_argument('--uv_init_mean', type=float, default=None, #TODO : Delete
                         help='Mean value of random initialization of U and V matrices (if None, depends on K)')
     parser.add_argument('--uv_init_std', type=float, default=0.1, #TODO : Delete
@@ -218,12 +220,12 @@ def retrain_U(matrix, test_data, V, biasV):
         # model.add(Dense(units=1, kernel_initializer='normal'))
         ## Compile model
         # model.compile(loss='mean_squared_error', optimizer='adam')
-
-        model.add(Dropout(0.5, input_shape=[K]))
+        
+        model.add(Dropout(args.dropout, input_shape=[K]))
         model.add(Dense(1, init='uniform',use_bias=True, activation='linear'))
         model.compile(loss='mse', optimizer='sgd')
 
-        early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=5)
+        early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=4)
          
         model.fit(input_data, output_data, validation_split=0.1, verbose=2, nb_epoch=300, callbacks=[early_stopping])
         #model.fit(input_data, output_data, validation_data=(input_data_val, output_data_val),
@@ -269,8 +271,8 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
         mean = args.uv_init_mean if args.uv_init_mean else np.sqrt(global_mean/K)
         bound_u = mean - args.uv_init_std/2
         bound_l = mean + args.uv_init_std/2
-        U = np.random.uniform(0, 0.02, (matrix.shape[0], K))
-        V = np.random.uniform(0, 0.02, (matrix.shape[1], K))
+        U = np.random.uniform(0, 0.05, (matrix.shape[0], K))
+        V = np.random.uniform(0, 0.05, (matrix.shape[1], K))
 
         
         if verbose > 0 :
@@ -441,7 +443,7 @@ def train(raw_data):
         assert len(args.K) == 1, "We want to export a submission! Hyperparameter can't be a list!"
         predictions = run_model(raw_data, None, args.K[0])
         print_stats(predictions)
-        filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.K, args.L)
+        filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}_d{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.K, args.L, args.dropout)
         write_data(filename, predictions)
         return predictions
 
