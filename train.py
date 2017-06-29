@@ -190,7 +190,6 @@ def svd_prediction(matrix, K=15):
 
 def retrain_U(matrix, test_data, V, biasV):
     K = V.shape[1]
-    matrix = matrix - biasV
     configs = [
         [(K,"relu")],
         [(2*K, "relu"), (K,"relu")],
@@ -204,7 +203,7 @@ def retrain_U(matrix, test_data, V, biasV):
         non_zero_indices = np.where(matrix[i] != 0)[0]
         zero_indices = np.where(matrix[i] == 0)[0]
         input_data = V[non_zero_indices]
-        output_data = (matrix[i])[non_zero_indices]
+        output_data = (matrix[i]-biasV)[non_zero_indices]
         
         """
         non_zero_indices_val = np.where(test_data[i] != 0)[0]
