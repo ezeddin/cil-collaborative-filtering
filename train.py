@@ -227,6 +227,65 @@ def retrain_U(matrix, test_data, V, biasV):
     #print("Scores obtained : " + str(scores))
     return pred_matrix + biasV
 
+
+def sgd_prediction_nobias(matrix, test_data, K, L, verbose):
+    """
+        A simple Stochastic gradient descent predictor. Does not use biases.
+        
+        matrix is the training dataset with nonzero entries only where ratings are given
+        
+        test_data is used to calculate the test scores.
+        
+        verbose = 0 for no logging
+                  1 for inital messages
+                  2 for steps
+                  
+    """
+    non_zero_indices = list(zip(*np.nonzero(matrix)))
+    global_mean = matrix.sum() / len(non_zero_indices)
+    
+    print_every = SGD_ITER / args.n_messages
+    
+    U = np.random.uniform(0, 0.05, (matrix.shape[0], K))
+    V = np.random.uniform(0, 0.05, (matrix.shape[1], K))
+    
+    
+    if verbose > 0 :
+        print("      SGD: sgd_prediction called. No biases, K={}, L={}, lr_factor={}".format(K, L, args.lr_factor))
+        print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
+        print("      SGD: global mean is {}".format(global_mean))
+        
+    lr = sgd_learning_rate(0)
+    for t in range(SGD_ITER):
+        if t % 1000000 == 0: #update learning rate
+            lr = sgd_learning_rate(t, lr)
+        d,n = random.choice(non_zero_indices)
+                        
+        U_d = U[d,:]
+        V_n = V[n,:]
+
+        guess = U_d.dot(V_n)            
+        delta = matrix[d,n] - guess
+
+        try:
+            new_U_d = U_d + lr * (delta * V_n - L*U_d)
+            new_V_n = V_n + lr * (delta * U_d - L*V_n)
+        except FloatingPointError:
+            print("WARNING : FloatingPointError caught! Iteration skipped!")
+            continue
+        else:
+            U[d,:] = new_U_d
+            V[n,:] = new_V_n
+                
+        if verbose == 2 and t % print_every == 0:
+            score = validate(matrix, U.dot(V.T))
+            test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
+            print("      SGD : step {:8d}  ({:2d}% done). fit = {:.4f}, test_fit={:.4f}, learning_rate={:.5f}".format(t+1, int(100 * (t+1) /SGD_ITER), score, test_score, lr))
+    return U.dot(V.T)
+    
+    
+    
+    
 def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model_path=None, use_bias=True, use_nn=False):
     """
         matrix is the training dataset with nonzero entries only where ratings are given
@@ -239,7 +298,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
     """
     
     if model_path:
-        U, V, optional_zero_mean, biasU, biasV = pickle.load(open(model_path, 'rb')) #TODO : delete optional_zero_mean
+        U, V, biasU, biasV = pickle.load(open(model_path, 'rb'))
     else:
         non_zero_indices = list(zip(*np.nonzero(matrix)))
         global_mean = matrix.sum() / len(non_zero_indices)
@@ -259,7 +318,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
             print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
             print("      SGD: global mean is {}".format(global_mean))
             
-        lr = sgd_learning_rate(0,0)
+        lr = sgd_learning_rate(0)
         start_time = datetime.datetime.now()
         for t in range(SGD_ITER):
             if t % 1000000 == 0:
@@ -311,18 +370,18 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
     if use_nn:
         if save_model:
             filename = 'save/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
-            pickle.dump([U, V, optional_zero_mean, biasU, biasV], open(filename, 'wb')) #TODO : Delete optional_zero_mean
+            pickle.dump([U, V,  biasU, biasV], open(filename, 'wb'))
         return retrain_U(matrix, test_data, V, biasV)
     elif use_bias:
         if save_model:
             filename = 'save/mode_SGD+_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
-            pickle.dump([U, V, optional_zero_mean, biasU, biasV], open(filename, 'wb')) #TODO : Delete optional_zero_mean
-        return U.dot(V.T) + biasU.reshape(-1,1) + biasV + optional_zero_mean
+            pickle.dump([U, V, biasU, biasV], open(filename, 'wb')) 
+        return U.dot(V.T) + biasU.reshape(-1,1) + biasV 
     else:
         if save_model:
             filename = 'save/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
-            pickle.dump([U, V, optional_zero_mean, None, None], open(filename, 'wb')) #TODO : Delete optional_zero_mean
-        return U.dot(V.T) + optional_zero_mean
+            pickle.dump([U, V, None, None], open(filename, 'wb')) 
+        return U.dot(V.T)
 
 def sgd_learning_rate(t):
     """
@@ -356,7 +415,7 @@ def run_model(training_data, test_data, K):
     elif args.model == 'SVD':
         predictions = svd_prediction(averaging_prediction(training_data), K=K)
     elif args.model == 'SGD':
-        predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path, use_bias=False)
+        predictions = sgd_prediction_nobias(training_data, test_data, K=K, L=args.L, L2=args.L2, verbose=args.v)
     elif args.model == 'SGD+':
         predictions = sgd_prediction(training_data, test_data, K=K, verbose=args.v, L=args.L, L2=args.L2, save_model=args.save_model,model_path=args.model_path)
     elif args.model == 'SGDnn':
