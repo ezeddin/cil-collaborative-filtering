@@ -258,7 +258,7 @@ def sgd_prediction_nobias(matrix, test_data, K, L, verbose):
     lr = sgd_learning_rate(0)
     for t in range(SGD_ITER):
         if t % 1000000 == 0: #update learning rate
-            lr = sgd_learning_rate(t, lr)
+            lr = sgd_learning_rate(t)
         d,n = random.choice(non_zero_indices)
                         
         U_d = U[d,:]
@@ -322,7 +322,7 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
         start_time = datetime.datetime.now()
         for t in range(SGD_ITER):
             if t % 1000000 == 0:
-                lr = sgd_learning_rate(t, lr)
+                lr = sgd_learning_rate(t)
             d,n = random.choice(non_zero_indices)
                 
             
