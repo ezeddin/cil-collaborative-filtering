@@ -198,7 +198,7 @@ def retrain_U(matrix, test_data, V, biasV):
 
     scores = []
     #for config in configs:
-    pred_matrix = np.copy(matrix)
+    pred_matrix = np.zeros(matrix.shape)
     for i in range(matrix.shape[0]): #retrain for each user
         non_zero_indices = np.where(matrix[i] != 0)[0]
         zero_indices = np.where(matrix[i] == 0)[0]
@@ -231,9 +231,9 @@ def retrain_U(matrix, test_data, V, biasV):
         #model.fit(input_data, output_data, validation_data=(input_data_val, output_data_val),
         #          verbose=2,  nb_epoch=300, callbacks=[early_stopping])
         
-        pred_input_data = V[zero_indices]
+        pred_input_data = V
         pred_output_data = model.predict(pred_input_data, verbose=2)
-        pred_matrix[i][zero_indices] = pred_output_data[0]
+        pred_matrix[i] = (pred_output_data.T)[0]
         print("user {}, config {}".format(i, 1))
     #scores.append(validate(test_data,pred_matrix))
     #print("Scores obtained : " + str(scores))
