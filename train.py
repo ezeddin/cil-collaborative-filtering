@@ -71,14 +71,6 @@ def main(arguments, matrix=None):
                     help='save all matrices')
     parser.add_argument('--dropout', type=float, default=0.5,
                         help='Dropout value to use in neural network postprocessing.')
-    parser.add_argument('--uv_init_mean', type=float, default=None, #TODO : Delete
-                        help='Mean value of random initialization of U and V matrices (if None, depends on K)')
-    parser.add_argument('--uv_init_std', type=float, default=0.1, #TODO : Delete
-                        help='Standard deviation of random initialization of U and V matrices')
-    parser.add_argument('--bias_init_mean', type=float, default=None, #TODO : Delete
-                        help='Mean value of random initialization of bias vectors (if None, initialization with row and column averages)')
-    parser.add_argument('--bias_init_std', type=float, default=0.0, #TODO : Delete
-                        help='Standard deviation of random initialization of bias vectors')
     args = parser.parse_args(arguments)
     args.K = eval(args.K)
     args.K = args.K if type(args.K) == list else [args.K]
@@ -130,10 +122,6 @@ def write_data(filename, matrix):
                 rating = np.round(matrix[item,user], ROUND)
                 write_file.write(SUBMISSION_FORMAT.format(user+1, item+1, rating))          
     
-def print_stats(matrix):
-    print("The matrix has the following values:")
-    print("  > Values range from {} to {}".format(np.min(matrix),np.max(matrix)))
-    print("  > Average value is {}".format(np.average(matrix)))
     
 def split_randomly(raw_data, n_splits=8):
     """
@@ -258,22 +246,13 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
         
         print_every = SGD_ITER / args.n_messages
         
-        if use_bias:
-            if args.bias_init_mean == None:
-                biasU = np.zeros(matrix.shape[0])
-                biasV = np.zeros(matrix.shape[1])
-            else:
-                biasU = np.random.normal(args.bias_init_mean, args.bias_init_std, matrix.shape[0])
-                biasV = np.random.normal(args.bias_init_mean, args.bias_init_std, matrix.shape[1])
-
-        """
-        mean = args.uv_init_mean if args.uv_init_mean else np.sqrt(global_mean/K)
-        bound_u = mean - args.uv_init_std/2
-        bound_l = mean + args.uv_init_std/2
-        """
         U = np.random.uniform(0, 0.05, (matrix.shape[0], K))
         V = np.random.uniform(0, 0.05, (matrix.shape[1], K))
-
+        
+        if use_bias:
+            biasU = np.zeros(matrix.shape[0])
+            biasV = np.zeros(matrix.shape[1])
+            
         
         if verbose > 0 :
             print("      SGD: sgd_prediction called. biases={}, K={}, L={}, L2={}, lr_factor={}".format(use_bias, K, L, L2, args.lr_factor))
@@ -346,6 +325,11 @@ def sgd_prediction(matrix, test_data, K, verbose, L, L2, save_model=False, model
         return U.dot(V.T) + optional_zero_mean
 
 def sgd_learning_rate(t):
+    """
+    learning rate used in sgd.
+    
+    t : the step number
+    """
     result = 0
     done = t / SGD_ITER
     if   done < 2/6: 
@@ -432,7 +416,6 @@ def train(raw_data):
     else:
         assert len(args.K) == 1, "We want to export a submission! Hyperparameter can't be a list!"
         predictions = run_model(raw_data, None, args.K[0])
-        print_stats(predictions)
         filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}_d{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.K, args.L, args.dropout)
         write_data(filename, predictions)
         return predictions
