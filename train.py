@@ -214,9 +214,10 @@ def retrain_U(matrix, test_data, V, biasV):
         model.add(Dense(1, init='uniform',use_bias=True, activation='linear'))
         model.compile(loss='mse', optimizer='sgd')
 
-        early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=4)
+
 
         if args.early_stopping:
+            early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=4)
             model.fit(input_data, output_data, validation_split=0.1, verbose=2, nb_epoch=300, callbacks=[early_stopping])
         else:
             model.fit(input_data, output_data, verbose=0, nb_epoch=300)
