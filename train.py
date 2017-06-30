@@ -13,7 +13,7 @@ from keras.models import Sequential
 from keras.layers import Dense,  Dropout
 import keras.callbacks
 
-_bool = lambda s: s.lower() in ['true', 't', 'yes', '1']`
+_bool = lambda s: s.lower() in ['true', 't', 'yes', '1']
 
 #%matplotlib inline
 
@@ -221,7 +221,7 @@ def retrain_U(matrix, test_data, V, biasV):
 
         #model.fit(input_data, output_data, validation_data=(input_data_val, output_data_val),
         #          verbose=2,  nb_epoch=300, callbacks=[early_stopping])
-        
+
         pred_input_data = V
         pred_output_data = model.predict(pred_input_data, verbose=2)
         pred_matrix[i] = (pred_output_data.T)[0]
