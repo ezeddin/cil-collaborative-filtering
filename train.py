@@ -385,6 +385,7 @@ def sgd_learning_rate(t):
 def clip_values(predictions):
     predictions[predictions > 5.0] = 5.0
     predictions[predictions < 1.0] = 1.0
+    return predictions
 
 def run_model(training_data, test_data, K):
     if args.model == 'average':
