@@ -12,6 +12,7 @@ import random
 from keras.models import Sequential
 from keras.layers import Dense,  Dropout
 import keras.callbacks
+import datetime
 
 _bool = lambda s: s.lower() in ['true', 't', 'yes', '1']
 
@@ -192,6 +193,7 @@ def retrain_U(matrix, test_data, V, biasV):
     K = V.shape[1]
 
     pred_matrix = np.zeros(matrix.shape)
+    time_start = datetime.datetime.now()
     for i in range(matrix.shape[0]): #retrain for each user
         non_zero_indices = np.where(matrix[i] != 0)[0]
         input_data = V[non_zero_indices]
@@ -217,7 +219,7 @@ def retrain_U(matrix, test_data, V, biasV):
         if args.early_stopping:
             model.fit(input_data, output_data, validation_split=0.1, verbose=2, nb_epoch=300, callbacks=[early_stopping])
         else:
-            model.fit(input_data, output_data, verbose=2, nb_epoch=300)
+            model.fit(input_data, output_data, verbose=0, nb_epoch=300)
 
         #model.fit(input_data, output_data, validation_data=(input_data_val, output_data_val),
         #          verbose=2,  nb_epoch=300, callbacks=[early_stopping])
@@ -225,7 +227,9 @@ def retrain_U(matrix, test_data, V, biasV):
         pred_input_data = V
         pred_output_data = model.predict(pred_input_data, verbose=2)
         pred_matrix[i] = (pred_output_data.T)[0]
-        print("user {}, config {}".format(i, 1))
+        duration = (datetime.datetime.now()-time_start)*(matrix.shape[0]/(i+1) - 1)
+        duration_str = 'h '.join(str(duration).split('.')[0].split(':')[0:2]) + 'm'
+        print("user {}, config {}, duration: {}".format(i, 1, duration_str))
     #scores.append(validate(test_data,pred_matrix))
     #print("Scores obtained : " + str(scores))
     return pred_matrix + biasV
