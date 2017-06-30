@@ -13,6 +13,8 @@ from keras.models import Sequential
 from keras.layers import Dense,  Dropout
 import keras.callbacks
 
+_bool = lambda s: s.lower() in ['true', 't', 'yes', '1']
+
 #%matplotlib inline
 
 DATA_FILE = 'data/data_train.csv'
@@ -67,9 +69,8 @@ def main(arguments, matrix=None):
                     help='save all matrices')
     parser.add_argument('--dropout', type=float, default=0.5,
                         help='Dropout value to use in neural network postprocessing.')
-    parser.add_argument('--early_stopping', type=bool, default=True,
-                        help='Should we use early stopping in postprocessing?.')
-    
+    parser.add_argument('--early_stopping', type=_bool, default=False,
+                        help='Observes the loss and stops early if it doesn\'t decrease.')
     args = parser.parse_args(arguments)
     args.K = eval(args.K)
     args.K = args.K if type(args.K) == list else [args.K]
@@ -211,15 +212,17 @@ def retrain_U(matrix, test_data, V, biasV):
         model.add(Dense(1, init='uniform',use_bias=True, activation='linear'))
         model.compile(loss='mse', optimizer='sgd')
 
-         
+
+
         if args.early_stopping:
             early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=4)
             model.fit(input_data, output_data, validation_split=0.1, verbose=2, nb_epoch=300, callbacks=[early_stopping])
         else:
-            model.fit(input_data, output_data, verbose=2, nb_epoch=300)    
+            model.fit(input_data, output_data, verbose=2, nb_epoch=300)
+
         #model.fit(input_data, output_data, validation_data=(input_data_val, output_data_val),
         #          verbose=2,  nb_epoch=300, callbacks=[early_stopping])
-        
+
         pred_input_data = V
         pred_output_data = model.predict(pred_input_data, verbose=2)
         pred_matrix[i] = (pred_output_data.T)[0]
