@@ -209,7 +209,7 @@ def retrain_U(matrix, test_data, V, biasV):
         # model.compile(loss='mean_squared_error', optimizer='adam')
         
         model.add(Dropout(args.dropout, input_shape=[K]))
-        model.add(Dense(1, init='uniform',use_bias=True, activation='linear'))
+        model.add(Dense(1, init='uniform', activation='linear'))
         model.compile(loss='mse', optimizer='sgd')
 
 
