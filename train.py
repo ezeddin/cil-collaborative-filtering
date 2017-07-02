@@ -183,12 +183,13 @@ def svd_prediction(matrix, K=15):
 def retrain_U(matrix, test_data, V, biasV):
     """
         Postprocessing used in SGDnn model. 
-        
-        Recomputes the U matrix that we discarded.
+        Recomputes the U matrix as well as biasU that we discarded.
         
         matrix : The original matric
         V : The movie features that were computed by the SGD.
         biasV : The movie biases that were computed by the SGD.
+        
+        Returns : The full recalculated matrix.
     """
     K = V.shape[1]
 
@@ -200,39 +201,23 @@ def retrain_U(matrix, test_data, V, biasV):
         output_data = (matrix[i]-biasV)[non_zero_indices]
         
     
-        model = Sequential()
-        #l_units, l_activtor = config[0]
-        #model.add(Dense(units=l_units, input_dim=K, kernel_initializer='normal', activation=l_activtor))
-        #for l_units, l_activtor in config[1:]:
-        #    model.add(Dense(units=l_units, kernel_initializer='normal', activation=l_activtor))
-            # model.add(Dropout(0.5))
-        # model.add(Dense(units=1, kernel_initializer='normal'))
-        ## Compile model
-        # model.compile(loss='mean_squared_error', optimizer='adam')
-        
+        model = Sequential()    
         model.add(Dropout(args.dropout, input_shape=[K]))
         model.add(Dense(1, init='uniform', activation='linear'))
         model.compile(loss='mse', optimizer='sgd')
-
-
 
         if args.early_stopping:
             early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=4)
             model.fit(input_data, output_data, validation_split=0.1, verbose=2, nb_epoch=300, callbacks=[early_stopping])
         else:
             model.fit(input_data, output_data, verbose=0, nb_epoch=300)
-
-        #model.fit(input_data, output_data, validation_data=(input_data_val, output_data_val),
-        #          verbose=2,  nb_epoch=300, callbacks=[early_stopping])
-
+            
         pred_input_data = V
         pred_output_data = model.predict(pred_input_data, verbose=2)
         pred_matrix[i] = (pred_output_data.T)[0]
         duration = (datetime.datetime.now()-time_start)*(matrix.shape[0]/(i+1) - 1)
         duration_str = 'h '.join(str(duration).split('.')[0].split(':')[0:2]) + 'm'
-        print("user {}, config {}, duration: {}".format(i, 1, duration_str))
-    #scores.append(validate(test_data,pred_matrix))
-    #print("Scores obtained : " + str(scores))
+        print("user {}, expected duration: {}".format(i, duration_str))
     return pred_matrix + biasV
 
 
