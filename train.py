@@ -40,7 +40,7 @@ def main(arguments, matrix=None):
     global args
     parser = argparse.ArgumentParser(
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--submission', type=bool, default=False,
+    parser.add_argument('--submission', type=bool, default=True,
                         help='Omit local cross-validation, just train the model and export submission file. ')
     parser.add_argument('--model', type=str, default='SGD+',
                         help='Prediction algorithm: average, SVD, SGD, SGD+, SGDnn')
@@ -66,7 +66,7 @@ def main(arguments, matrix=None):
                     help='load matrices from external arguments (use to skip SGD+ when using a neural network postprocessing)')
     parser.add_argument('--save_model', type=bool, default=False,
                     help='save all matrices')
-    parser.add_argument('--dropout', type=float, default=0.5,
+    parser.add_argument('--dropout', type=float, default=0.6,
                         help='Dropout value to use in neural network postprocessing.')
     parser.add_argument('--early_stopping', type=_bool, default=False,
                         help='Observes the loss and stops early if it doesn\'t decrease.')
