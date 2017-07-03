@@ -11,6 +11,7 @@ from scipy.interpolate import Rbf
 from matplotlib.widgets import Slider
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import RegularGridInterpolator
+import sys
 #%matplotlib inline
 
 def logspace(start, stop, n):
@@ -50,13 +51,22 @@ full = np.ones(tuple(dim_size))*np.nan
 for entry in M:
     full[scales[0].index(entry[0]), scales[1].index(entry[1]), scales[2].index(entry[2])] = entry[3]
 
+print('\n\nTop 20:')
+print('K   | L      | L2     | Score\n---+--------+--------+----------')
+for k,l,l2,s in sorted(M, key=itemgetter(3))[:20]:
+    print('{:3d} | {:.4f} | {:.4f} | {:.6f}'.format(k,l,l2,s))
+
+sys.exit()
+
 plt.close('all')
 slider_k = None
 im = None
 rbf = None
 
+
+
 if dim_size[dim0] == 1:
-    # if one dimension if just a scalar, just plot the obvious: a 2D grid
+    # if one dimension is just a scalar, just plot the obvious: a 2D grid
     fig = plt.figure()
     ax = plt.gca()
     # produce interpolated 2d grid
@@ -68,10 +78,10 @@ if dim_size[dim0] == 1:
     rbf = Rbf(sub_data[dim1], sub_data[dim2], sub_data[3], epsilon=0.05)
     data = rbf(v0, v1)
     levels = logspace(np.min(data), np.max(data), 10)
-    cset = plt.contour(data, levels, linewidths=2, cmap=cm.hot, extent=[min(scales[dim2]), max(scales[dim2]),
-                                              min(scales[dim1]), max(scales[dim1])])
-    plt.clabel(cset,inline=True,fmt='%.5f',fontsize=8)
-    im = ax.imshow(data,cmap=cm.RdBu, extent=[min(scales[dim2]), max(scales[dim2]),
+    #cset = plt.contour(data, levels, linewidths=2, cmap=cm.hot, extent=[min(scales[dim2]), max(scales[dim2]),
+    #                                          min(scales[dim1]), max(scales[dim1])])
+    #plt.clabel(cset,inline=True,fmt='%.5f',fontsize=8)
+    im = ax.imshow(full.T.squeeze(),cmap=cm.RdBu, extent=[min(scales[dim2]), max(scales[dim2]),
                                               min(scales[dim1]), max(scales[dim1])], aspect='auto')
     plt.colorbar(im) # adding the colorbar on the right
     plt.xlabel(names[dim2])
