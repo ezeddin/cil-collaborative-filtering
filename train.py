@@ -60,12 +60,10 @@ def main(arguments, matrix=None):
                         help='Verbosity of sgd algorithm: 0 for none, 1 for basic messages, 2 for steps')
     parser.add_argument('--n_messages', type=int, default=20,
                         help='The number of messages to print for the sgd. Only relevant when --v==2')
-    parser.add_argument('--subtract_mean', type=bool, default=False,
-                        help='Subtracts the mean of the data matrix in preprocessing')
     parser.add_argument('--external_matrix', type=bool, default=False,
                         help='In a multiprocessing environment: get matrices from external arguments')
     parser.add_argument('--model_path', type=str, default=None,
-                    help='load all matrices from external arguments')
+                    help='load matrices from external arguments (use to skip SGD+ when using a neural network postprocessing)')
     parser.add_argument('--save_model', type=bool, default=False,
                     help='save all matrices')
     parser.add_argument('--dropout', type=float, default=0.5,
@@ -168,7 +166,7 @@ def averaging_prediction(matrix):
 
 def svd_prediction(matrix, K=15):
     """
-        computes SVD from filled up data matrix and returns the prediction for non-negative values.
+        computes the SVD from filled up data matrix and returns the prediction for non-negative values.
         
         matrix : The matrix (dense) for which to calculate the singular value decomposition
         K: number of singular values to keep (number of 'principle components')
@@ -179,61 +177,6 @@ def svd_prediction(matrix, K=15):
     S2 = S[:K]
     VT2 = VT[:K, :]
     return U2.dot(np.diag(S2)).dot(VT2)
-
-def retrain_U(matrix, test_data, V, biasV):
-    """
-        Postprocessing used in SGDnn model. 
-        
-        Recomputes the U matrix that we discarded.
-        
-        matrix : The original matric
-        V : The movie features that were computed by the SGD.
-        biasV : The movie biases that were computed by the SGD.
-    """
-    K = V.shape[1]
-
-    pred_matrix = np.zeros(matrix.shape)
-    time_start = datetime.datetime.now()
-    for i in range(matrix.shape[0]): #retrain for each user
-        non_zero_indices = np.where(matrix[i] != 0)[0]
-        input_data = V[non_zero_indices]
-        output_data = (matrix[i]-biasV)[non_zero_indices]
-        
-    
-        model = Sequential()
-        #l_units, l_activtor = config[0]
-        #model.add(Dense(units=l_units, input_dim=K, kernel_initializer='normal', activation=l_activtor))
-        #for l_units, l_activtor in config[1:]:
-        #    model.add(Dense(units=l_units, kernel_initializer='normal', activation=l_activtor))
-            # model.add(Dropout(0.5))
-        # model.add(Dense(units=1, kernel_initializer='normal'))
-        ## Compile model
-        # model.compile(loss='mean_squared_error', optimizer='adam')
-        
-        model.add(Dropout(args.dropout, input_shape=[K]))
-        model.add(Dense(1, init='uniform', activation='linear'))
-        model.compile(loss='mse', optimizer='sgd')
-
-
-
-        if args.early_stopping:
-            early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=4)
-            model.fit(input_data, output_data, validation_split=0.1, verbose=2, nb_epoch=300, callbacks=[early_stopping])
-        else:
-            model.fit(input_data, output_data, verbose=0, nb_epoch=300)
-
-        #model.fit(input_data, output_data, validation_data=(input_data_val, output_data_val),
-        #          verbose=2,  nb_epoch=300, callbacks=[early_stopping])
-
-        pred_input_data = V
-        pred_output_data = model.predict(pred_input_data, verbose=2)
-        pred_matrix[i] = (pred_output_data.T)[0]
-        duration = (datetime.datetime.now()-time_start)*(matrix.shape[0]/(i+1) - 1)
-        duration_str = 'h '.join(str(duration).split('.')[0].split(':')[0:2]) + 'm'
-        print("user {}, config {}, duration: {}".format(i, 1, duration_str))
-    #scores.append(validate(test_data,pred_matrix))
-    #print("Scores obtained : " + str(scores))
-    return pred_matrix + biasV
 
 
 def sgd_prediction_nobias(matrix, test_data, K, L, verbose):
@@ -294,10 +237,18 @@ def sgd_prediction_nobias(matrix, test_data, K, L, verbose):
     
     
     
-def sgd_prediction(matrix, test_data, K,  L, L2, verbose, use_nn=False):
+def sgd_prediction(matrix, test_data, K,  L, L2, verbose, postprocess=False):
     """
+        stochastic gradient descent predictor.
+        It is the model that leads to the best scores.
+        
         matrix is the training dataset with nonzero entries only where ratings are given
         
+        K : the number of features to use
+        L : regularizer for the 
+        L2 : regularizer for 
+        
+        postprocess : if True, the neural network postprocessing will be used
         verbose = 0 for no logging
                   1 for inital messages
                   2 for steps
@@ -368,10 +319,52 @@ def sgd_prediction(matrix, test_data, K,  L, L2, verbose, use_nn=False):
         filename = 'save/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
         pickle.dump([U, V,  biasU, biasV], open(filename, 'wb'))
     
-    if use_nn:
+    if postprocess:
         return retrain_U(matrix, test_data, V, biasV)
     else:
         return U.dot(V.T) + biasU.reshape(-1,1) + biasV 
+
+
+def retrain_U(matrix, test_data, V, biasV):
+    """
+        Postprocessing used in SGDnn model. 
+        Recomputes the U matrix as well as biasU that we discarded.
+        
+        matrix : The original matric
+        V : The movie features that were computed by the SGD.
+        biasV : The movie biases that were computed by the SGD.
+        
+        Returns : The full recalculated matrix.
+    """
+    K = V.shape[1]
+
+    pred_matrix = np.zeros(matrix.shape)
+    time_start = datetime.datetime.now()
+    for i in range(matrix.shape[0]): #retrain for each user
+        non_zero_indices = np.where(matrix[i] != 0)[0]
+        input_data = V[non_zero_indices]
+        output_data = (matrix[i]-biasV)[non_zero_indices]
+        
+    
+        model = Sequential()    
+        model.add(Dropout(args.dropout, input_shape=[K]))
+        model.add(Dense(1, init='uniform', activation='linear'))
+        model.compile(loss='mse', optimizer='sgd')
+
+        if args.early_stopping:
+            early_stopping=keras.callbacks.EarlyStopping(monitor='val_loss', verbose=0, mode='auto', patience=4)
+            model.fit(input_data, output_data, validation_split=0.1, verbose=2, nb_epoch=300, callbacks=[early_stopping])
+        else:
+            model.fit(input_data, output_data, verbose=0, nb_epoch=300)
+            
+        pred_input_data = V
+        pred_output_data = model.predict(pred_input_data, verbose=2)
+        pred_matrix[i] = (pred_output_data.T)[0]
+        duration = (datetime.datetime.now()-time_start)*(matrix.shape[0]/(i+1) - 1)
+        duration_str = 'h '.join(str(duration).split('.')[0].split(':')[0:2]) + 'm'
+        print("user {}, expected duration: {}".format(i, duration_str))
+    return pred_matrix + biasV
+
 
 def sgd_learning_rate(t):
     """
@@ -400,6 +393,14 @@ def clip_values(predictions):
     predictions[predictions < 1.0] = 1.0
     return predictions
 
+def validate(secret_data, approximation):
+    """
+        calculate the score for approximation when predicting secret_data, using the same formula as on kaggle
+    """
+    error_sum = np.where(secret_data!=0, np.square(approximation-secret_data),0).sum()
+    return math.sqrt(error_sum / (secret_data!=0).sum())
+
+
 def run_model(training_data, test_data, K):
     if args.model == 'average':
         predictions = averaging_prediction(training_data)
@@ -410,17 +411,11 @@ def run_model(training_data, test_data, K):
     elif args.model == 'SGD+':
         predictions = sgd_prediction(training_data, test_data, K=K,  L=args.L, L2=args.L2, verbose=args.v)
     elif args.model == 'SGDnn':
-        predictions = sgd_prediction(training_data, test_data, K=K,  L=args.L, L2=args.L2, verbose=args.v, use_nn=True)
+        predictions = sgd_prediction(training_data, test_data, K=K,  L=args.L, L2=args.L2, verbose=args.v, postprocess=True)
     else:
         assert 'Model not supported'
     return clip_values(predictions)
 
-def validate(secret_data, approximation):
-    """
-        calculate the score for approximation when predicting secret_data, using the same formula as on kaggle
-    """
-    error_sum = np.where(secret_data!=0, np.square(approximation-secret_data),0).sum()
-    return math.sqrt(error_sum / (secret_data!=0).sum())
 
 def train(raw_data):
     """
