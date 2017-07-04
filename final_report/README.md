@@ -39,7 +39,7 @@ The submissions files will be written to the submissions folder.
 How to generate the plots:
 ==========================
 
-Figure 1 : These plots were generated using the attached excel file (TODO join excel file). The data in the excel file was extracted from the cross-validation output
+Figure 1 : These plots were generated using the attached excel file. The data in the excel file was extracted from the cross-validation output
 
 Figure 2 : This plot was generaded using the following routine:
 
