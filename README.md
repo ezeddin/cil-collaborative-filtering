@@ -1,4 +1,4 @@
-collaborative filtering
+Collaborative Filtering
 =======================
 
 A recommender system is concerned with presenting items (e.g. books on Amazon, movies at Movielens or music at lastFM) that are likely to interest the user. In collaborative filtering, we base our recommendations on the (known) preference of the user towards other items, and also take into account the preferences of other users.
@@ -18,66 +18,66 @@ Your collaborative filtering algorithm is evaluated according to the following w
 - prediction error, measured by root-mean-squared error (RMSE)
 
 
+Code usage:
+===========
 
-Euler Cheat Sheet
+usage: train.py [-h] [--submission SUBMISSION] [--model MODEL]
+                [--cv_splits CV_SPLITS] [--score_averaging SCORE_AVERAGING]
+                [--K K] [--L L] [--L2 L2] [--lr_factor LR_FACTOR] [--v V]
+                [--n_messages N_MESSAGES] [--external_matrix EXTERNAL_MATRIX]
+                [--model_path MODEL_PATH] [--save_model SAVE_MODEL]
+                [--dropout DROPOUT] [--early_stopping EARLY_STOPPING]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --submission SUBMISSION
+                        Omit local cross-validation, just train the model and
+                        export submission file. (default: True)
+  --model MODEL         Prediction algorithm: average, SVD, SGD, SGD+, SGDnn
+                        (default: SGD+)
+  --cv_splits CV_SPLITS
+                        Number of data splits for cross validation (default:
+                        14)
+  --score_averaging SCORE_AVERAGING
+                        How many splits should be used as test data (default:
+                        1)
+  --K K                 First hyperparameter : Latent feature dimension size.
+                        int or list (default: 12)
+  --L L                 Second hyperparameter : Regularizer for SGD. (default:
+                        0.083)
+  --L2 L2               Third hyperparameter : Bias regularizer for SGD+
+                        (default: 0.04)
+  --lr_factor LR_FACTOR
+                        Multiplier for the learning rate. (default: 3.0)
+  --v V                 Verbosity of sgd algorithm: 0 for none, 1 for basic
+                        messages, 2 for steps (default: 2)
+  --n_messages N_MESSAGES
+                        The number of messages to print for the sgd. Only
+                        relevant when --v==2 (default: 20)
+  --external_matrix EXTERNAL_MATRIX
+                        In a multiprocessing environment: get matrices from
+                        external arguments (default: False)
+  --model_path MODEL_PATH
+                        load matrices from external arguments (use to skip
+                        SGD+ when using a neural network postprocessing)
+                        (default: None)
+  --save_model SAVE_MODEL
+                        save all matrices (default: False)
+  --dropout DROPOUT     Dropout value to use in neural network postprocessing.
+                        (default: 0.6)
+  --early_stopping EARLY_STOPPING
+                        Observes the loss and stops early if it doesn't
+                        decrease. (default: False)
+
+
+Plot Script Usage
 =================
 
-This short description is a summary of the [wiki](https://scicomp.ethz.ch/wiki/Getting_started_with_clusters).
+The plotting of the grid searches worked as follows:
 
-
-Connection
-----------
-
-Login with `ssh <username>@euler.ethz.ch`.
-To do file operations and also be able to edit file contents with a GUI, I recommend also connecting with WinSCP.
-This way, source files or scripts can be edited by just double clicking on them in the WinSCP explorer window.
-
-Note that outside the ETH, you have to be connected through VPN to get access to Euler.
-
-
-File Organization
------------------
-
-On euler you have a home directory at `/cluster/home/<username>`. Set the file up as follows:
-
-1. clone the git repository to a subfolder (the exact remote url string is important to be able to sign there in as collaborator):
-   `git clone https://<YOUR_github_username>@github.com/<path_to_repository>.git`
-2. add data files not tracked by git with WinSCP (drag and drop).
-
-
-Python Usage
-------------
-
-To make python available as a module, call `module load python/3.3.3`.
-Now you can test your environment by trying to run a python file.
-
-
-Job Submission
---------------
-
-To submit a job to the queue system, call `bsub <command> [<arguments>]`. If your job exceed the default resource allocation (in terms of memory, computation time, hard drive space etc), you have to pass your resource requirements:
-
-Most important, if your job will take more than 4 hours to complete, submit it by passing it the expected duration (and some margin...) `bsub -W <hours>:<minutes>`. Other resource requirement parameters like number of CPU cores as well as switches for email notification etc. are available in [submission command configurator](https://scicomp.ethz.ch/lsf_submission_line_advisor/)
-
-
-Monitoring and Evaluation
--------------------------
-
-Once submitted, every job gets an ID assigned and awaits execution in a "pending" queue.
-You can watch the state and resources of your current jobs (still pending for execution or already running) with `bjobs` and `bbjobs`.
-To see the `STDOUT` stream of a running job, you can type `bpeek <JOB_ID>`.
-
-You can even connect to the machine on which the job is running by `bjob_connect <JOB_ID>`.
-Running jobs as well as pending jobs can be killed with `bkill <JOB_ID>`.
-
-If the job finished, a log file containing the complete `STDOUT` stream is written called `lsf.o<JOB_ID>`.
-
-
-Example
--------
-
-I run my python script using
-`bsub -n 1 -W 00:30 -N -B -R "rusage[mem=512]" "python3 train.py --model=SGD --cv_splits=8 --param=list(range(2,20)) --n_iter=20000000"`
+1. We first ran the grid search using the `multi_job_submitter.py` script on Euler. This generated multiple jobs running the `batch_train.py` script which itself ran multiple parallel processes that called `train.py` with the according hyper-parameter. The `batch_train.py` script stored the results of the different runs as a numpy array in a pickle file called `data/grid_search_<timestamp>`. So in the end, one file for every job was created.
+2. The results of these files were then concatenated using the `batch_train_postconcatenate.py` script. This script generated the file `data/grid.mat` which contains all results in rows with the columns being _K_, _L_, _L2_ and the score.
+3. This file could then be loaded with the `grid_plot.m` MATLAB script which finally displays the plot.
 
 
 Authors
