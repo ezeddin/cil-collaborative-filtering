@@ -92,3 +92,6 @@ ENV/
 submissions/
 data/
 local_vars.py
+
+# MATLAB stuff
+*.asv
