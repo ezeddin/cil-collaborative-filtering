@@ -20,7 +20,7 @@ Your collaborative filtering algorithm is evaluated according to the following w
 
 Code usage:
 ===========
-
+``` 
 usage: train.py [-h] [--submission SUBMISSION] [--model MODEL]
                 [--cv_splits CV_SPLITS] [--score_averaging SCORE_AVERAGING]
                 [--K K] [--L L] [--L2 L2] [--lr_factor LR_FACTOR] [--v V]
@@ -68,7 +68,7 @@ optional arguments:
   --early_stopping EARLY_STOPPING
                         Observes the loss and stops early if it doesn't
                         decrease. (default: False)
-
+```
 
 Plot Script Usage
 =================
