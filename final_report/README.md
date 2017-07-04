@@ -39,7 +39,7 @@ The submissions files will be written to the submissions folder.
 How to generate the plots:
 ==========================
 
-Figure 1 : These plots were generated using the attached excel file. The data in the excel file was extracted from the cross-validation output
+Figure 1 : These plots were generated using the attached excel file in the plotting_data folder. The data in the excel file was extracted from the cross-validation output
 
 Figure 2 : This plot was generaded using the following routine:
 
@@ -47,7 +47,7 @@ Figure 2 : This plot was generaded using the following routine:
   2. The results of these files then have to be concatenated using the `batch_train_postconcatenate.py` script. This script generated the file `data/grid.mat` which contains all results in different rows with the columns being _K_, _L_, _L2_ and the score.
   3. This file can then be loaded with the `grid_plot.m` MATLAB script which finally displays the plot.
 
-Figure 3 : This plot was produced by running the MATLAB script `dropout_interpolation.m` which contains the scores from the kaggle website.
+Figure 3 : This plot was produced by running the MATLAB script `dropout_interpolation.m` from the plotting_data folder which contains the scores from the kaggle website.
 
 
 Advanced Code Usage:
