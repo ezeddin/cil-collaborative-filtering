@@ -4,7 +4,6 @@ import argparse
 import numpy as np
 import scipy.sparse
 import time
-from local_vars import USERNAME
 import pickle
 import matplotlib.pyplot as plt
 import math
@@ -40,7 +39,7 @@ def main(arguments, matrix=None):
     global args
     parser = argparse.ArgumentParser(
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--submission', type=bool, default=True,
+    parser.add_argument('--submission', type=_bool, default=True,
                         help='Omit local cross-validation, just train the model and export submission file. ')
     parser.add_argument('--model', type=str, default='SGD+',
                         help='Prediction algorithm: average, SVD, SGD, SGD+, SGDnn')
@@ -124,6 +123,8 @@ def write_data(filename, matrix):
     
 def split_randomly(raw_data, n_splits=8):
     """
+        Function used for creating the Cross Validation datasets.
+
         randomly splits the non-zero indices of the raw_data matrix into n parts. 
         a list of length n is returned, each element being the indices of the i-th split
     """
@@ -136,11 +137,12 @@ def split_randomly(raw_data, n_splits=8):
 
 def build_train_and_test(raw_data, index_splits, use_as_test):
     """
-    raw_data : the matrix to split into parts
-    index_splits : list of list of indexes as returned by split_randomly function
-    use_as_test : the split (int) to leave out as test set
-    
-    returns : a training matrix and a test matrix
+        Function used for creating the Cross Validation datasets.
+        raw_data : the matrix to split into parts
+        index_splits : list of list of indexes as returned by split_randomly function
+        use_as_test : the split (int) to leave out as test set
+        
+        returns : a training matrix and a test matrix
     """
     train_data = np.array(raw_data)
     train_data[list(zip(*index_splits[use_as_test]))] = 0 
@@ -164,7 +166,7 @@ def averaging_prediction(matrix):
         averaged[i,:] = np.where(averaged[i,:] == 0, average_for_item[i], averaged[i,:])
     return averaged
 
-def svd_prediction(matrix, K=15):
+def svd_prediction(matrix, K=12):
     """
         computes the SVD from filled up data matrix and returns the prediction for non-negative values.
         
@@ -245,10 +247,11 @@ def sgd_prediction(matrix, test_data, K,  L, L2, verbose, postprocess=False):
         matrix is the training dataset with nonzero entries only where ratings are given
         
         K : the number of features to use
-        L : regularizer for the 
-        L2 : regularizer for 
+        L : regularizer for the U and V matrices
+        L2 : regularizer for biasU and biasV matrices
         
         postprocess : if True, the neural network postprocessing will be used
+        
         verbose = 0 for no logging
                   1 for inital messages
                   2 for steps
@@ -330,7 +333,7 @@ def retrain_U(matrix, test_data, V, biasV):
         Postprocessing used in SGDnn model. 
         Recomputes the U matrix as well as biasU that we discarded.
         
-        matrix : The original matric
+        matrix : The original matrix
         V : The movie features that were computed by the SGD.
         biasV : The movie biases that were computed by the SGD.
         
@@ -374,6 +377,7 @@ def sgd_learning_rate(t):
     """
     result = 0
     done = t / SGD_ITER
+    return 0.001
     if   done < 2/6: 
         result =  0.03
     elif done < 3/6: 
@@ -461,7 +465,7 @@ def train(raw_data):
     else:
         assert len(args.K) == 1, "We want to export a submission! Hyperparameter can't be a list!"
         predictions = run_model(raw_data, None, args.K[0])
-        filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}_d{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.K, args.L, args.dropout)
+        filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}_d{}.csv'.format('final', time.strftime('%c').replace(':','-')[4:-5], args.K, args.L, args.dropout)
         write_data(filename, predictions)
         return predictions
 
