@@ -1,3 +1,11 @@
+QUICKSTART:
+===========
+
+run `python train.py` for SGD+ model,
+`python train.py --model=SGDnn` for model with neural post-processing.
+
+The submissions files will be written to the submissions folder.
+
 Collaborative Filtering
 =======================
 
@@ -78,7 +86,6 @@ The plotting of the grid searches worked as follows:
 1. We first ran the grid search using the `multi_job_submitter.py` script on Euler. This generated multiple jobs running the `batch_train.py` script which itself ran multiple parallel processes that called `train.py` with the according hyper-parameter. The `batch_train.py` script stored the results of the different runs as a numpy array in a pickle file called `data/grid_search_<timestamp>`. So in the end, one file for every job was created.
 2. The results of these files were then concatenated using the `batch_train_postconcatenate.py` script. This script generated the file `data/grid.mat` which contains all results in rows with the columns being _K_, _L_, _L2_ and the score.
 3. This file could then be loaded with the `grid_plot.m` MATLAB script which finally displays the plot.
-
 
 Authors
 =======
