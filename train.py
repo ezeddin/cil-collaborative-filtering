@@ -15,8 +15,6 @@ import datetime
 
 _bool = lambda s: s.lower() in ['true', 't', 'yes', '1']
 
-#%matplotlib inline
-
 DATA_FILE = 'data/data_train.csv'
 SUBMISSION_EXAMPLE = 'data/sampleSubmission.csv'
 TARGET_FOLDER = 'submissions'
@@ -344,7 +342,7 @@ def retrain_U(matrix, test_data, V, biasV):
         
         Returns : The full recalculated matrix.
     """
-    print("Warning : Please not that results may not be the same on every iterations, " +\
+    print("Warning : Please note that results may not be the same on every iterations, " +\
         "as reproducible results are not guaranteed by the keras framework.")
     K = V.shape[1]
 
@@ -372,7 +370,7 @@ def retrain_U(matrix, test_data, V, biasV):
         pred_matrix[i] = (pred_output_data.T)[0]
         duration = (datetime.datetime.now()-time_start)*(matrix.shape[0]/(i+1) - 1)
         duration_str = 'h '.join(str(duration).split('.')[0].split(':')[0:2]) + 'm'
-        print("user {}, expected duration: {}".format(i, duration_str))
+        print("user {} / 1000, expected duration: {}".format(i, duration_str))
     return pred_matrix + biasV
 
 
