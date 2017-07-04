@@ -382,7 +382,6 @@ def sgd_learning_rate(t):
     """
     result = 0
     done = t / SGD_ITER
-    return 0.001
     if   done < 2/6: 
         result =  0.03
     elif done < 3/6: 
