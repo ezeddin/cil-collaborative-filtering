@@ -4,7 +4,6 @@ import argparse
 import numpy as np
 import scipy.sparse
 import time
-from local_vars import USERNAME
 import pickle
 import matplotlib.pyplot as plt
 import math
@@ -40,7 +39,7 @@ def main(arguments, matrix=None):
     global args
     parser = argparse.ArgumentParser(
                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--submission', type=bool, default=False,
+    parser.add_argument('--submission', type=_bool, default=True,
                         help='Omit local cross-validation, just train the model and export submission file. ')
     parser.add_argument('--model', type=str, default='SGD+',
                         help='Prediction algorithm: average, SVD, SGD, SGD+, SGDnn')
@@ -66,7 +65,7 @@ def main(arguments, matrix=None):
                     help='load matrices from external arguments (use to skip SGD+ when using a neural network postprocessing)')
     parser.add_argument('--save_model', type=bool, default=False,
                     help='save all matrices')
-    parser.add_argument('--dropout', type=float, default=0.5,
+    parser.add_argument('--dropout', type=float, default=0.6,
                         help='Dropout value to use in neural network postprocessing.')
     parser.add_argument('--early_stopping', type=_bool, default=False,
                         help='Observes the loss and stops early if it doesn\'t decrease.')
@@ -97,7 +96,8 @@ def load_data(filename):
             c = s[0].split('_')
             rows[i] = int(c[1][1:]) - 1 # 0-based indexing
             cols[i] = int(c[0][1:]) - 1 # 0-based indexing
-    data = scipy.sparse.csr_matrix((values, (rows, cols)), shape=(NB_ITEMS, NB_USERS), dtype='float')
+    data = scipy.sparse.csr_matrix((
+        values, (rows, cols)), shape=(NB_ITEMS, NB_USERS), dtype='float')
     nb_ratings = data.getnnz()
 
     print('Dataset has {} non zero values'.format(nb_ratings))
@@ -124,23 +124,27 @@ def write_data(filename, matrix):
     
 def split_randomly(raw_data, n_splits=8):
     """
+        Function used for creating the Cross Validation datasets.
+
         randomly splits the non-zero indices of the raw_data matrix into n parts. 
         a list of length n is returned, each element being the indices of the i-th split
     """
     non_zero_indices = list(zip(*np.nonzero(raw_data)))
     np.random.shuffle(non_zero_indices) 
     size = len(non_zero_indices) // n_splits
-    assert(size * n_splits == len(non_zero_indices)), "n chosen for cross validation does not evenly split data. Choose 4, 7, 8, 14, 28, 56"
+    assert(size * n_splits == len(non_zero_indices)
+        ),"n chosen for cross validation does not evenly split data. Choose 4, 7, 8, 14, 28, 56"
     
     return [non_zero_indices[(a*size): ((a+1)*size)] for a in range(n_splits)]
 
 def build_train_and_test(raw_data, index_splits, use_as_test):
     """
-    raw_data : the matrix to split into parts
-    index_splits : list of list of indexes as returned by split_randomly function
-    use_as_test : the split (int) to leave out as test set
-    
-    returns : a training matrix and a test matrix
+        Function used for creating the Cross Validation datasets.
+        raw_data : the matrix to split into parts
+        index_splits : list of list of indexes as returned by split_randomly function
+        use_as_test : the split (int) to leave out as test set
+        
+        returns : a training matrix and a test matrix
     """
     train_data = np.array(raw_data)
     train_data[list(zip(*index_splits[use_as_test]))] = 0 
@@ -164,7 +168,7 @@ def averaging_prediction(matrix):
         averaged[i,:] = np.where(averaged[i,:] == 0, average_for_item[i], averaged[i,:])
     return averaged
 
-def svd_prediction(matrix, K=15):
+def svd_prediction(matrix, K=12):
     """
         computes the SVD from filled up data matrix and returns the prediction for non-negative values.
         
@@ -231,7 +235,8 @@ def sgd_prediction_nobias(matrix, test_data, K, L, verbose):
         if verbose == 2 and t % print_every == 0:
             score = validate(matrix, U.dot(V.T))
             test_score = validate(test_data, U.dot(V.T)) if test_data is not None else -1
-            print("      SGD : step {:8d}  ({:2d}% done). fit = {:.4f}, test_fit={:.4f}, learning_rate={:.5f}".format(t+1, int(100 * (t+1) /SGD_ITER), score, test_score, lr))
+            print("      SGD : step {:8d}  ({:2d}% done). fit = {:.4f}, test_fit={:.4f}, learning_rate={:.5f}".format(
+                t+1, int(100 * (t+1) /SGD_ITER), score, test_score, lr))
     return U.dot(V.T)
     
     
@@ -245,10 +250,11 @@ def sgd_prediction(matrix, test_data, K,  L, L2, verbose, postprocess=False):
         matrix is the training dataset with nonzero entries only where ratings are given
         
         K : the number of features to use
-        L : regularizer for the 
-        L2 : regularizer for 
+        L : regularizer for the U and V matrices
+        L2 : regularizer for biasU and biasV matrices
         
         postprocess : if True, the neural network postprocessing will be used
+        
         verbose = 0 for no logging
                   1 for inital messages
                   2 for steps
@@ -272,7 +278,8 @@ def sgd_prediction(matrix, test_data, K,  L, L2, verbose, postprocess=False):
             
         
         if verbose > 0 :
-            print("      SGD: sgd_prediction called. Using Biases, K={}, L={}, L2={}, lr_factor={}".format(K, L, L2, args.lr_factor))
+            print("      SGD: sgd_prediction called. Using Biases, K={}, L={}, L2={}, lr_factor={}".format(
+                K, L, L2, args.lr_factor))
             print("      SGD: There are {} nonzero indices in total.".format(len(non_zero_indices)))
             print("      SGD: global mean is {}".format(global_mean))
             
@@ -313,7 +320,8 @@ def sgd_prediction(matrix, test_data, K,  L, L2, verbose, postprocess=False):
             if verbose == 2 and t % print_every == 0:
                 score = validate(matrix, U.dot(V.T) + biasU.reshape(-1,1) + biasV)
                 test_score = validate(test_data, U.dot(V.T) + biasU.reshape(-1,1) + biasV) if test_data is not None else -1
-                print("      SGD : step {:8d}  ({:2d}% done). fit = {:.4f}, test_fit={:.4f}, learning_rate={:.5f}".format(t+1, int(100 * (t+1) /SGD_ITER), score, test_score, lr))
+                print("      SGD : step {:8d}  ({:2d}% done). fit = {:.4f}, test_fit={:.4f}, learning_rate={:.5f}".format(
+                    t+1, int(100 * (t+1) /SGD_ITER), score, test_score, lr))
 
     if args.save_model:
         filename = 'save/mode_SGD_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K, L, L2)
@@ -330,12 +338,14 @@ def retrain_U(matrix, test_data, V, biasV):
         Postprocessing used in SGDnn model. 
         Recomputes the U matrix as well as biasU that we discarded.
         
-        matrix : The original matric
+        matrix : The original matrix
         V : The movie features that were computed by the SGD.
         biasV : The movie biases that were computed by the SGD.
         
         Returns : The full recalculated matrix.
     """
+    print("Warning : Please not that results may not be the same on every iterations, " +\
+        "as reproducible results are not guaranteed by the keras framework.")
     K = V.shape[1]
 
     pred_matrix = np.zeros(matrix.shape)
@@ -374,6 +384,7 @@ def sgd_learning_rate(t):
     """
     result = 0
     done = t / SGD_ITER
+    return 0.001
     if   done < 2/6: 
         result =  0.03
     elif done < 3/6: 
@@ -411,7 +422,8 @@ def run_model(training_data, test_data, K):
     elif args.model == 'SGD+':
         predictions = sgd_prediction(training_data, test_data, K=K,  L=args.L, L2=args.L2, verbose=args.v)
     elif args.model == 'SGDnn':
-        predictions = sgd_prediction(training_data, test_data, K=K,  L=args.L, L2=args.L2, verbose=args.v, postprocess=True)
+        predictions = sgd_prediction(
+            training_data, test_data, K=K,  L=args.L, L2=args.L2, verbose=args.v, postprocess=True)
     else:
         assert 'Model not supported'
     return clip_values(predictions)
@@ -448,7 +460,8 @@ def train(raw_data):
             K_str = str(args.K)
         else:
             K_str = str(args.K[0])
-        score_filename = 'data/scores_{}_{}_{:.4}_{:.4}.pkl'.format(time.strftime('%c').replace(':','-')[4:-5], K_str, args.L, args.L2)
+        score_filename = 'data/scores_{}_{}_{:.4}_{:.4}.pkl'.format(
+            time.strftime('%c').replace(':','-')[4:-5], K_str, args.L, args.L2)
         pickle.dump(npscore, open(score_filename, 'wb'))
         if len(scores) > 1:
             try:
@@ -461,7 +474,8 @@ def train(raw_data):
     else:
         assert len(args.K) == 1, "We want to export a submission! Hyperparameter can't be a list!"
         predictions = run_model(raw_data, None, args.K[0])
-        filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}_d{}.csv'.format(USERNAME, time.strftime('%c').replace(':','-')[4:-5], args.K, args.L, args.dropout)
+        filename = TARGET_FOLDER + '/submission_{}_{}_{}_{}_d{}.csv'.format(
+            'final', time.strftime('%c').replace(':','-')[4:-5], args.K, args.L, args.dropout)
         write_data(filename, predictions)
         return predictions
 
