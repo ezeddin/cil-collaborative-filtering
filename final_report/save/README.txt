@@ -1,0 +1,1 @@
+This is a folder for cached models. They get written here if the train.py script is executed with the --save_model=True flag.
